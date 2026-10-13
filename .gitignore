@@ -1,0 +1,14 @@
+# Converted Tyrian data: build it yourself with tools/ (see README). Never commit it.
+Textures/
+Sound/
+Data/
+
+# Local tooling
+.claude/
+.vexp/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp

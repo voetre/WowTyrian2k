@@ -1,0 +1,200 @@
+# WowTyrian2k
+
+[OpenTyrian](https://github.com/opentyrian/opentyrian) (Tyrian 2.1) ported to the
+World of Warcraft Lua addon engine. Type `/tyrian` in game to play.
+
+On top of a straight port of the original game, this version adds a **flight path mode**.
+When you take a flight, the addon offers a generated, arcade-style level timed to end just
+before you land, with a boss fight at the end.
+
+| | |
+|---|---|
+| ![Title screen](docs/screenshots/title.png) | ![Flight bar](docs/screenshots/flight-bar.png) |
+| Title screen | A timed level during a flight. The bar at the bottom shows the destination and the flight time left. |
+| ![Combat](docs/screenshots/forest-combat.png) | ![Ocean theme](docs/screenshots/ocean.png) |
+| A generated forest level built from segments of the original maps | Ocean theme |
+| ![Power-up pickup](docs/screenshots/powerup-pickup.png) | ![Boss](docs/screenshots/boss.png) |
+| Arcade drops: enemies leave power-ups behind | The boss arrives before landing (the `BOSS` tag on the bar) |
+
+*The screenshots show Tyrian's game art and were rendered by the headless test harness
+(`tools/harness`). This repository contains code only. See [Game data](#game-data).*
+
+> Interface 16001 (Classic). Version 0.2.0.
+
+## Changes from OpenTyrian
+
+### The port
+
+- The C sources are translated to Lua and run inside a coroutine. Every place the original
+  blocks (waiting for a frame or a key) yields to the WoW client, and `OnUpdate` resumes
+  it (`Core/Input.lua`, `Core/Main.lua`).
+- **`Game/`** holds the ported OpenTyrian modules. Each file names the C files it replaces:
+  `tyrian2.c`, `mainint.c`, `game_menu.c`, `shots.c`, `destruct.c`, `jukebox.c` and so on.
+- **`Core/`** replaces SDL and the platform layer:
+  - WoW can't upload pixels, so a "surface" is a display list of draw operations
+    (`Core/Video.lua`). `Core/Render.lua` turns that list into pooled WoW textures, drawn
+    from pre-baked sprite atlases.
+  - The palette is kept apart from a full-screen fade overlay, so palette fades still
+    look right (`Core/Palette.lua`).
+  - Sound effects and pre-rendered OPL music play as `.ogg` files through the WoW sound
+    system (`Core/Sound.lua`).
+  - Keyboard input is mapped from WoW key names to SDL scancodes.
+  - Configuration and saved games go to the `WowTyrian2kDB` saved variable instead of
+    `tyrian.cfg` and `tyrian.sav`.
+- The Destruct mini-game keeps its terrain as a Lua array and redraws only the columns
+  that changed.
+- **Removed:** multiplayer, network play, two-player mode and joystick configuration.
+  - The menus now say "Game Mode", "Full Game", "Arcade" and "Saved Games".
+  - The Galaga secret level's docking second ship still works.
+
+### Flight path mode (new)
+
+- **Flight timing** (`Core/Flight.lua`) estimates how long a flight lasts. It uses, in
+  order of preference:
+  1. your own recorded time for that exact route
+  2. Flight Timer Classic's data (`Core/FlightData.lua`, CC BY 2.0)
+  3. a fitted distance/hop model
+
+  Every completed flight is recorded, so the estimates improve with use.
+- **Flight toast** (`Core/FlightPrompt.lua`): a small, draggable toast. It shows the
+  destination, a countdown and a progress bar, and asks *"Play Tyrian? (m:ss level)"*.
+  - It never takes the keyboard.
+  - It fades away by itself when too little flight is left.
+- **Flight bar:** during a level, the strip at the bottom of the screen shows the
+  destination, the flight time left and a fill bar. It adds `BOSS` while the boss fight
+  is on, then `BOSS DESTROYED`.
+
+### Level generator (new)
+
+- `Game/LevelGen.lua` builds endless background maps from segments of the original
+  levels.
+- `tools/levgen/build.py` cuts the original maps into segments and builds a graph of
+  which segment may follow which, joining some with generated bridge rows.
+- Every 2x2 tile window along each join occurs in a real map, so the joins are seamless.
+- Themes: `forest` and `ocean`. Enemy waves come from the same source levels.
+- **Timed levels** last a fixed time. They end with a boss section from the source level,
+  plus an overtime limit.
+
+### Arcade play in timed levels (new)
+
+Power scales with how short the level is:
+
+    power = (900 - seconds) / 825, clamped to 0..1
+
+A 2-minute level is at about 95%; a 10-minute level is at about 36%.
+
+| What | How it scales |
+|---|---|
+| Front gun starting power | 2 + 4 × power (front power doubles as lives, as in arcade mode) |
+| Drop chance per kill | 12% + 13% × power |
+| Drop weights | power-up 3 + 4p, purple ball 3, armour 2, bomb 1 + p |
+| Difficulty | each ramp step adds round(power); the boss adds 3 × power |
+
+- **Enemy density:** more waves are kept (80/100/100%, up from 50/75/100%), and the enemy
+  frequency is capped at 95/93/90.
+- **Music:** each level picks a random song, seeded from the level seed.
+
+### Quality-of-life and tooling (new)
+
+- **Options page** under Options > AddOns: skip intro logos, window scale (1-6×), game
+  speed, and music and effects toggles and volumes.
+- **Cheats sub-page:**
+  - infinite shield, armour, generator power and sidekick ammo
+  - invincibility, instant kill, unlimited credits
+  - **All shop items:** every item from any episode's shop, in scrolling lists
+  - **Secret items:** for example the Nort Ship, Stalker and Banana Blast
+- **Debug dump** (F12 or `/tyrian dump`) records:
+  - the level, scroll positions and layer draw order
+  - every live enemy and the event that spawned it
+  - the arcade state
+
+  It opens in a window ready to copy and is kept in the saved variables.
+- **Performance meter** (`/tyrian perf`): game ticks per second and frame cost.
+
+## Slash commands
+
+`/tyrian` or `/wt2k`:
+
+| Command | What it does |
+|---|---|
+| *(none)* | Show or hide the game |
+| `scale <1-6>` | Window scale |
+| `options` | Open the options page |
+| `reset` | Reset the window position and size |
+| `genlevel [forest\|ocean] [seed]` | Play an endless generated level |
+| `timedlevel <2m\|120\|4:30> [theme] [seed]` | Play a timed generated level that ends with a boss |
+| `flighttest <duration> [theme] [seed]` / `flighttest stop` | Fake a flight, to try the toast and flight bar |
+| `flightprompt` | Turn the flight toast on or off |
+| `flights` | Turn flight time chat messages on or off |
+| `dump` | Make a render state dump (also F12) |
+| `perf` | Turn the performance meter on or off |
+| `stats` | Show memory use |
+| `debug` | Turn debug logging on or off |
+
+## Game data
+
+The Tyrian data is **not included** and must never be committed. That covers
+`Textures/`, `Sound/` and `Data/`, all of which are in `.gitignore`. Tyrian 2.1 is
+freeware; you can get it from the OpenTyrian project. Build the assets from it yourself:
+
+```sh
+# Sprites, tiles and pictures -> Textures/*.tga; game data files -> Data/*.lua
+python3 tools/convert.py <tyrian21 dir> .
+
+# Level generator library -> Data/levgen.lua
+python3 tools/levgen/build.py <tyrian21 dir> .
+
+# Sound effects -> Sound/sfx/sfxNN_vV.ogg (needs ffmpeg)
+python3 tools/make_sfx.py <tyrian21 dir> Sound/sfx
+```
+
+**Music** is pre-rendered from `music.mus`:
+
+1. Build `tools/music_render/render.c` against OpenTyrian's `lds_play.c` and `opl.c`.
+2. Run it as `render <music.mus> <out dir> [max seconds]`. It writes one
+   `songNN.raw` file (signed 16-bit, 44.1 kHz) per song.
+3. Encode each file to `Sound/music/songNN.ogg` with ffmpeg.
+
+Then copy the folder to `Interface/AddOns/WowTyrian2k`. The `.toc` file lists the
+generated `Data\*.lua` files, so the addon won't load until they exist.
+
+Other tools:
+- `tools/anm.py` decodes ANM animations.
+- `tools/flight/convert_ftc.py` regenerates `Core/FlightData.lua` from Flight Timer
+  Classic's `Data.lua`.
+- `tools/levgen/preview.py` and `tools/levgen/check.py` preview and check the generated
+  maps.
+
+## Headless test harness
+
+`tools/harness/` runs the addon outside WoW under LuaJIT, using a mock WoW API
+(`wow_mock.lua`, `mock_extra.lua`). It loads the files in `.toc` order and steps the game
+frame by frame. It can press keys at given frames and dump the render state at given
+frames. `compose.py` turns those dumps into PNGs using the built textures; the
+screenshots above were made this way.
+
+```sh
+cd tools/harness
+luajit run_opts.lua <addon dir> <frames> "<frame:key,...>" "<dump frames>"
+python3 compose.py <addon dir> dump_*.txt
+```
+
+## Licence and credits
+
+- **WowTyrian2k** is licensed under the GNU General Public License, version 2 or later
+  (see [COPYING](COPYING)).
+  - Lua port Copyright (C) 2026 voetre.
+  - Based on [OpenTyrian](https://github.com/opentyrian/opentyrian), Copyright (C) The
+    OpenTyrian Development Team.
+- **Tyrian** was created by Jason Emery and Eclipse Software, and Tyrian 2.1 was released
+  as freeware. The game's art, sound and music are not part of this repository.
+- **Flight times** in `Core/FlightData.lua` come from
+  [Flight Timer Classic](https://github.com/timohausmann/FlightTimerClassic) by
+  timohausmann, licensed under
+  [CC BY 2.0](https://creativecommons.org/licenses/by/2.0/). They were reformatted as a
+  Lua table; the times themselves are unchanged.
+- World of Warcraft is a trademark of Blizzard Entertainment. This project is not
+  affiliated with Blizzard or with the OpenTyrian project.
+
+See [TODO.md](TODO.md) for planned work and [KNOWN_BUGS.md](KNOWN_BUGS.md) for open
+issues.
