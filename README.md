@@ -17,7 +17,16 @@ before you land, with a boss fight at the end.
 | Arcade drops: enemies leave power-ups behind | The boss arrives before landing (the `BOSS` tag on the bar) |
 
 *The screenshots show Tyrian's game art and were rendered by the headless test harness
-(`tools/harness`). This repository contains code only. See [Game data](#game-data).*
+(`tools/harness`).*
+
+## Install
+
+Download **`WowTyrian2k-<version>-full.zip`** from
+[Releases](https://github.com/voetre/WowTyrian2k/releases). It includes the converted
+Tyrian data and is ready to play. Unzip it so the folder sits at
+`Interface/AddOns/WowTyrian2k`, then restart the game client fully; a `/reload` doesn't
+pick up new texture files. The code-only zip and this repository need the data built
+first; see [Game data](#game-data).
 
 > Interface 16001 (Classic). Version 0.2.0.
 
@@ -133,9 +142,13 @@ A 2-minute level is at about 95%; a 10-minute level is at about 36%.
 
 ## Game data
 
-The Tyrian data is **not included** and must never be committed. That covers
-`Textures/`, `Sound/` and `Data/`, all of which are in `.gitignore`. Tyrian 2.1 is
-freeware; you can get it from the OpenTyrian project. Build the assets from it yourself:
+The converted Tyrian data (`Textures/`, `Sound/` and `Data/`) ships only in the
+release's full zip and is kept out of this repository (it is in `.gitignore`). It is not
+covered by the GPL; see [DATA-NOTICE.txt](DATA-NOTICE.txt) for where it comes from and
+who made it.
+
+To build it yourself from the freeware Tyrian 2.1 files
+([tyrian21.zip](https://camanis.net/tyrian/tyrian21.zip)):
 
 ```sh
 # Sprites, tiles and pictures -> Textures/*.tga; game data files -> Data/*.lua
@@ -186,8 +199,14 @@ python3 compose.py <addon dir> dump_*.txt
   - Lua port Copyright (C) 2026 voetre.
   - Based on [OpenTyrian](https://github.com/opentyrian/opentyrian), Copyright (C) The
     OpenTyrian Development Team.
-- **Tyrian** was created by Jason Emery and Eclipse Software, and Tyrian 2.1 was released
-  as freeware. The game's art, sound and music are not part of this repository.
+- **Tyrian** (c) 1995 Epic MegaGames and Eclipse Software, released as freeware as
+  Tyrian 2.1. Programming and level design by Jason Emery; story and music by Alexander
+  Brandon; level artwork by Daniel Cook; with Robert Allen, Arturo Sinclair, Bruce Hsu,
+  John Calcagno, Andrew Paquette, Andreas Molnar, Susan Aldworth and Nando Eweg. The full
+  list is in [DATA-NOTICE.txt](DATA-NOTICE.txt).
+  - Daniel Cook released his Tyrian ship and tile graphics for free use in 2007:
+    [Lost Garden](https://lostgarden.com/2007/04/05/free-game-graphics-tyrian-ships-and-tiles/).
+  - The game data in the full release is not covered by the GPL.
 - **Flight times** in `Core/FlightData.lua` come from
   [Flight Timer Classic](https://github.com/timohausmann/FlightTimerClassic) by
   timohausmann, licensed under

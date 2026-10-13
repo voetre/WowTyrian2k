@@ -1,0 +1,55 @@
+WowTyrian2k: game data notice
+=============================
+
+The "full" release of WowTyrian2k includes Tyrian's graphics, sound, music and
+game data, converted for the WoW client:
+
+  Textures/   sprites, tiles and pictures, re-packed as TGA atlases
+  Sound/      sound effects, and the music rendered from music.mus to OGG
+  Data/       levels, enemies, items and text, converted to Lua tables;
+              levgen.lua holds segments cut from the original maps
+
+This data is NOT covered by the GNU GPL that applies to the WowTyrian2k code.
+All rights remain with its authors and rights holders. It is included for free
+use only and must not be sold.
+
+
+Where it comes from
+-------------------
+
+Tyrian (c) 1995 Epic MegaGames Inc and Eclipse Software.
+
+Tyrian 2.1 was later released as freeware. The data was converted from the
+freeware Tyrian 2.1 files, the same files the OpenTyrian project distributes:
+  https://github.com/opentyrian/opentyrian
+  https://camanis.net/tyrian/tyrian21.zip
+
+In April 2007 Daniel Cook, Tyrian's level artist, released his remastered
+Tyrian ship and tile graphics for anyone to use and modify ("use and abuse
+them as desired"):
+  https://lostgarden.com/2007/04/05/free-game-graphics-tyrian-ships-and-tiles/
+
+
+Tyrian credits (from the Tyrian 2.1 manual)
+-------------------------------------------
+
+Jason Emery: programming, level design, additional artwork, weapon design,
+  additional sound FX
+Alexander Brandon: story, music, coordinator, design, online help
+Daniel Cook: level artwork & design
+Robert Allen: producer, additional sound FX, additional design
+Arturo Sinclair: 3d artwork, title design
+Bruce Hsu: character portrait design
+John Calcagno: 3d animation
+Andrew Paquette: character portrait artwork, additional 3d artwork
+Andreas Molnar: LOUDNESS Sound System programming & music conversion
+Susan Aldworth: voices
+Nando Eweg: sound FX
+
+Thanks to all of them for making Tyrian and for letting it be played freely.
+The music was rendered with the OPL emulation from OpenTyrian
+(tools/music_render).
+
+
+If you hold rights to any of this material and want it removed, please open
+an issue at https://github.com/voetre/WowTyrian2k/issues.
