@@ -25,7 +25,10 @@ Download **`WowTyrian2k-<version>-full.zip`** from
 [Releases](https://github.com/voetre/WowTyrian2k/releases). It includes the converted
 Tyrian data and is ready to play. Unzip it so the folder sits at
 `Interface/AddOns/WowTyrian2k`, then restart the game client fully; a `/reload` doesn't
-pick up new texture files. The code-only zip and this repository need the data built
+pick up new texture files.
+
+A clone of this repository works too, since it includes the data: copy or link the
+checkout to `Interface/AddOns/WowTyrian2k`. The code-only zip needs the data built
 first; see [Game data](#game-data).
 
 > Interface 16001 (Classic). Version 0.2.0.
@@ -142,12 +145,11 @@ A 2-minute level is at about 95%; a 10-minute level is at about 36%.
 
 ## Game data
 
-The converted Tyrian data (`Textures/`, `Sound/` and `Data/`) ships only in the
-release's full zip and is kept out of this repository (it is in `.gitignore`). It is not
-covered by the GPL; see [DATA-NOTICE.txt](DATA-NOTICE.txt) for where it comes from and
-who made it.
+The converted Tyrian data is included in this repository (`Textures/`, `Sound/` and
+`Data/`) and in the release's full zip. It is not covered by the GPL; see
+[DATA-NOTICE.txt](DATA-NOTICE.txt) for where it comes from and who made it.
 
-To build it yourself from the freeware Tyrian 2.1 files
+To rebuild it yourself from the freeware Tyrian 2.1 files
 ([tyrian21.zip](https://camanis.net/tyrian/tyrian21.zip)):
 
 ```sh
@@ -206,7 +208,7 @@ python3 compose.py <addon dir> dump_*.txt
   list is in [DATA-NOTICE.txt](DATA-NOTICE.txt).
   - Daniel Cook released his Tyrian ship and tile graphics for free use in 2007:
     [Lost Garden](https://lostgarden.com/2007/04/05/free-game-graphics-tyrian-ships-and-tiles/).
-  - The game data in the full release is not covered by the GPL.
+  - The game data (`Textures/`, `Sound/`, `Data/`) is not covered by the GPL.
 - **Flight times** in `Core/FlightData.lua` come from
   [Flight Timer Classic](https://github.com/timohausmann/FlightTimerClassic) by
   timohausmann, licensed under

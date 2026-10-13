@@ -1,8 +1,8 @@
 WowTyrian2k: game data notice
 =============================
 
-The "full" release of WowTyrian2k includes Tyrian's graphics, sound, music and
-game data, converted for the WoW client:
+This repository and the "full" release zip of WowTyrian2k include Tyrian's
+graphics, sound, music and game data, converted for the WoW client:
 
   Textures/   sprites, tiles and pictures, re-packed as TGA atlases
   Sound/      sound effects, and the music rendered from music.mus to OGG
