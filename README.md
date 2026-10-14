@@ -20,9 +20,10 @@ arcade level that ends before you land, with a boss at the end.
 
 ## Install
 
-Download **`WowTyrian2k-<version>-full.zip`** from
-[Releases](https://github.com/voetre/WowTyrian2k/releases). It includes the converted
-Tyrian data. Unzip it so the folder sits at
+Install it from CurseForge or WowUp, or download
+**`WowTyrian2k-v<version>-forever.zip`** from
+[Releases](https://github.com/voetre/WowTyrian2k/releases) (releases up to 0.3.1 call it
+`-full.zip`). It includes the converted Tyrian data. Unzip it so the folder sits at
 `Interface/AddOns/WowTyrian2k`, then restart the game client fully; a `/reload` doesn't
 pick up new texture files.
 
