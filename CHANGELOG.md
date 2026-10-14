@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.2
+- Now on CurseForge, and installable from WowUp. No gameplay changes.
+
 ## 0.3.1
 - Shorter, plainer text in the README, the options page and the setup menu. No gameplay changes.
 

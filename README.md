@@ -30,7 +30,7 @@ A clone of this repository works too, since it includes the data: copy or link t
 checkout to `Interface/AddOns/WowTyrian2k`. The code-only zip needs the data built
 first; see [Game data](#game-data).
 
-> Interface 16001 (Classic). Version 0.3.1.
+> Interface 16001 (Classic). Version 0.3.2.
 
 ## Changes from OpenTyrian
 
