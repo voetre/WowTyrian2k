@@ -5,6 +5,7 @@
 ## Version: 0.3.2
 ## SavedVariables: WowTyrian2kDB
 ## X-Curse-Project-ID: 1743925
+## X-Wago-ID: mKOaZRNx
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
