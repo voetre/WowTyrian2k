@@ -27,6 +27,13 @@ jobs:
         if: github.event_name == 'push'
         uses: BigWigsMods/packager@v2
 
+      # A test build also checks which CurseForge game versions match the toc
+      - name: CurseForge game versions (test build)
+        if: github.event_name == 'workflow_dispatch' && env.CF_API_KEY != ''
+        run: |
+          curl -sf -H "X-Api-Token: $CF_API_KEY" https://wow.curseforge.com/api/game/versions \
+            | jq -c '[.[] | select(.name | test("^1\\.(1[5-9]|[2-9][0-9])")) | {id, name, gameVersionTypeID}]'
+
       - name: Package only (test build)
         if: github.event_name == 'workflow_dispatch'
         uses: BigWigsMods/packager@v2
