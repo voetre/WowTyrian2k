@@ -42,9 +42,11 @@ jobs:
         with:
           args: -d
 
-      # The code-only zip, for building the game data yourself
+      # The code-only zip, for building the game data yourself (with the
+      # tools, which .pkgmeta leaves out of the main package)
       - name: Code-only zip
         run: |
+          cp -r tools .release/WowTyrian2k/
           cd .release
           rm -rf WowTyrian2k/Data WowTyrian2k/Textures WowTyrian2k/Sound WowTyrian2k/DATA-NOTICE.txt
           zip -qr -X "WowTyrian2k-${GITHUB_REF_NAME#v}-code.zip" WowTyrian2k

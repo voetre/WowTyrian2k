@@ -719,7 +719,7 @@ end
 local function statsText()
 	local st = ns.db.stats
 	if not st or not st.runs or #st.runs == 0 then
-		return "No runs yet.  Finish a generated level (flight mode, /tyrian timedlevel or /tyrian genlevel) to start."
+		return "No runs yet.  Finish a generated level (flight mode or /tyrian timedlevel) to start."
 	end
 	local clock = LevelGen.clockText
 	local t = st.totals or {}

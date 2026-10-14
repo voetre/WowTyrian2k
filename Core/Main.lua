@@ -454,31 +454,37 @@ _G.SlashCmdList.WOWTYRIAN2K = function(msg)
 	elseif cmd == "restart" then
 		ns.restartGame()
 		ns.Print("game restarted")
+	--@do-not-package@
+	-- Developer commands, left out of packaged releases (BigWigsMods/packager
+	-- deletes everything between these markers).
 	elseif cmd == "genlevel" then
 		-- test the level generator: /tyrian genlevel [theme] [seed]
 		local name, seed = arg:match("^(%a*)%s*(%d*)")
 		ns.playGenLevel({ name = name ~= "" and name:lower() or nil, seed = tonumber(seed) })
-	elseif cmd == "flighttest" or cmd == "timedlevel" then
-		-- flighttest: a pretend flight of that length, with the flight mode
-		-- prompt (Core/FlightPrompt.lua); timedlevel: the timed level at once.
-		-- /tyrian flighttest <5m|300|4:30> [theme] [seed]
+	elseif cmd == "flighttest" then
+		-- a pretend flight of that length, with the flight mode prompt
+		-- (Core/FlightPrompt.lua): /tyrian flighttest <5m|300|4:30> [theme] [seed]
 		local dur, name, seed = arg:match("^(%S*)%s*(%a*)%s*(%d*)")
-		if cmd == "flighttest" and dur == "stop" then
+		if dur == "stop" then
 			ns.FlightPrompt.stopTest()
 			return
 		end
 		local seconds = LevelGen.parseDuration(dur)
 		if not seconds then
-			ns.Print("usage: /tyrian " .. cmd .. " <duration: 5m, 300, 4:30> [forest|ocean] [seed]"
-				.. (cmd == "flighttest" and "  (or: /tyrian flighttest stop)" or ""))
+			ns.Print("usage: /tyrian flighttest <duration: 5m, 300, 4:30> [forest|ocean] [seed]  (or: /tyrian flighttest stop)")
 			return
 		end
-		local req = { name = name ~= "" and name or nil, seed = tonumber(seed), seconds = seconds }
-		if cmd == "flighttest" then
-			ns.FlightPrompt.startTest(seconds, req)
-		else
-			ns.playGenLevel(req)
+		ns.FlightPrompt.startTest(seconds, { name = name ~= "" and name or nil, seed = tonumber(seed), seconds = seconds })
+	--@end-do-not-package@
+	elseif cmd == "timedlevel" then
+		-- the timed level at once: /tyrian timedlevel <5m|300|4:30> [theme] [seed]
+		local dur, name, seed = arg:match("^(%S*)%s*(%a*)%s*(%d*)")
+		local seconds = LevelGen.parseDuration(dur)
+		if not seconds then
+			ns.Print("usage: /tyrian timedlevel <duration: 5m, 300, 4:30> [forest|ocean] [seed]")
+			return
 		end
+		ns.playGenLevel({ name = name ~= "" and name or nil, seed = tonumber(seed), seconds = seconds })
 	elseif cmd == "flightprompt" then
 		-- the "Play Tyrian?" prompt when a flight starts
 		local o = ns.options

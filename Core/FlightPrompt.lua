@@ -9,7 +9,7 @@
  landing (LevelGen.beginTest); No dismisses it.  When too little flight is
  left for the shortest timed level, the toast fades away by itself.  It
  never takes the keyboard.
- /tyrian flighttest <duration> fakes a flight of that length to try it out.
+ /tyrian flighttest <duration> (developer builds) fakes a flight of that length.
 ]]
 local _, ns = ...
 setfenv(1, ns.G)
@@ -201,6 +201,7 @@ end
 
 ns.Flight.onBoarded = FlightPrompt.show
 
+--@do-not-package@
 -- A pretend flight of `seconds`; req = { name, seed } picks the level theme.
 function FlightPrompt.startTest(seconds, req)
 	local c = { start = _G.GetTime(), eta = seconds, how = "test", dest = "Test flight", test = true, req = req }
@@ -219,3 +220,4 @@ function FlightPrompt.stopTest()
 	end
 	if toast and toast:IsShown() then update() end
 end
+--@end-do-not-package@

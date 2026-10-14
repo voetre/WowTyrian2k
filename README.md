@@ -186,15 +186,22 @@ A 2-minute level is at about 95%; a 10-minute level is at about 36%.
 | `options` | Open the options page |
 | `reset` | Reset the window position and size |
 | `restart` | Restart the game (saved games are kept) |
-| `genlevel [forest\|ocean] [seed]` | Play an endless generated level |
 | `timedlevel <2m\|120\|4:30> [theme] [seed]` | Play a timed generated level that ends with a boss |
-| `flighttest <duration> [theme] [seed]` / `flighttest stop` | Fake a flight, to try the toast and flight bar |
 | `flightprompt` | Turn the flight toast on or off (see the Flight Mode options for more) |
 | `flights` | Turn flight time chat messages on or off |
 | `dump` | Make a render state dump (also F12) |
 | `perf` | Turn the performance meter on or off |
 | `stats` | Show memory use |
 | `debug` | Turn debug logging on or off |
+
+Developer builds (the repo checked out as the addon folder) also have these. The
+packaged releases leave them out: the code between `--@do-not-package@` markers is
+removed by the packager.
+
+| Command | What it does |
+|---|---|
+| `genlevel [forest\|ocean] [seed]` | Play an endless generated level |
+| `flighttest <duration> [theme] [seed]` / `flighttest stop` | Fake a flight, to try the toast and flight bar |
 
 ## Game data
 

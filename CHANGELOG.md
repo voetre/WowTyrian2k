@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.3
+- Release builds leave out the developer test commands (`/tyrian genlevel` and `/tyrian flighttest`) and the developer tools. The debug, dump, performance meter and stats commands and options are still there, for bug reports. No gameplay changes.
+
 ## 0.3.2
 - Now on CurseForge, and installable from WowUp. No gameplay changes.
 
