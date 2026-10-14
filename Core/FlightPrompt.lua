@@ -20,20 +20,31 @@ local floor = math.floor
 local FlightPrompt = {}
 ns.FlightPrompt = FlightPrompt
 
-local MARGIN = 10      -- seconds the level ends before the landing
 local FADE = 1.5       -- seconds to fade out
 local TICK = 0.25      -- seconds between timer updates
 
 local toast, flight, fading, tick
 
 local function timedLevelRunning()
-	return genLevel and genLevel.seconds and ns.root and ns.root:IsShown()
+	return (bonusRun or genLevel and genLevel.seconds) and ns.root and ns.root:IsShown()
+end
+
+local function opt(k, default)
+	local v = ns.options and ns.options[k]
+	if v == nil then return default end
+	return v
+end
+
+-- Shortest level offered (the "shortest game" option, at least the
+-- generator's own minimum).
+local function minSeconds()
+	return math.max(LevelGen.MIN_SECONDS, opt("flightMinLevel", LevelGen.MIN_SECONDS))
 end
 
 -- Seconds a level started now could last, or nil if the flight is too short.
 local function levelSeconds()
-	local s = floor(ns.Flight.remaining() - MARGIN)
-	if s >= LevelGen.MIN_SECONDS then return s end
+	local s = floor(ns.Flight.remaining() - LevelGen.landMargin())
+	if s >= minSeconds() then return s end
 end
 
 local function fadeOut(why)
@@ -91,7 +102,8 @@ local function accept()
 	hide()
 	if not s then return end
 	local req = c.req or {}
-	ns.playGenLevel({ name = req.name, seed = req.seed, seconds = s })
+	local theme = opt("flightTheme", "random")
+	ns.playGenLevel({ name = req.name or (theme ~= "random" and theme or nil), seed = req.seed, seconds = s })
 end
 
 local function button(parent, text, onClick)
@@ -155,8 +167,11 @@ local function create()
 end
 
 -- Offers a game for flight c (ns.Flight.current).
+-- With the "on flight start" option at "start", the level starts at once
+-- instead.
 function FlightPrompt.show(c)
-	if not c or ns.db and ns.db.flightPrompt == false then return end
+	local mode = opt("flightMode", "ask")
+	if not c or mode == "off" then return end
 	if timedLevelRunning() then
 		if c.test then ns.Print("A timed level is already running.") end
 		return
@@ -166,8 +181,12 @@ function FlightPrompt.show(c)
 		flight = nil
 		if c.test then
 			ns.Print(sprintf("Flight too short for a game: needs at least %s.",
-				LevelGen.clockText(LevelGen.MIN_SECONDS + MARGIN)))
+				LevelGen.clockText(minSeconds() + LevelGen.landMargin())))
 		end
+		return
+	end
+	if mode == "start" then
+		accept()
 		return
 	end
 	toast = toast or create()

@@ -154,7 +154,7 @@ local function landed()
 	if secs >= 10 and secs <= 3600 then
 		local rec = recorded(c.mapID)
 		if rec then rec[c.key] = secs end
-		if ns.debugLog then
+		if ns.db and ns.db.flightInfo ~= false then
 			ns.Print(format("Flight to %s took %d:%02d (estimated %d:%02d from %s).",
 				c.dest, floor(secs / 60), secs % 60, floor(c.eta / 60), c.eta % 60, SOURCES[c.how]))
 		end

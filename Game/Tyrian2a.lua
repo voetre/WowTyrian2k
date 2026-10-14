@@ -717,6 +717,8 @@ local function levelLoopIteration(L)
 
 	if genLevel then
 		LevelGen.frame()
+	elseif bonusRun then
+		LevelGen.bonusFrame()
 	end
 
 	-- Background Wrapping
@@ -1535,8 +1537,8 @@ function JE_main()
 			free_sprite2s(enemySpriteSheets[2])
 			free_sprite2s(enemySpriteSheets[3])
 
-			if genLevel then
-				-- generated test level: back to the title, no shop or saves
+			if genLevel or bonusRun then
+				-- generated test or bonus level: back to the title, no shop or saves
 				difficultyLevel = oldDifficultyLevel
 				fade_song()
 				fade_black(10)

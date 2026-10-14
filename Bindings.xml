@@ -1,0 +1,5 @@
+<Bindings>
+	<Binding name="WOWTYRIAN2K_TOGGLE" header="WOWTYRIAN2K" category="ADDONS">
+		WowTyrian2k_Toggle()
+	</Binding>
+</Bindings>

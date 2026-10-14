@@ -335,6 +335,20 @@ function ns.present(surface)
 	end
 end
 
+-- The look shared by the game window and the jukebox's controls: the
+-- settings window's inset frame over a near-black background.
+function ns.panelFrame(parent)
+	local ok, f = pcall(CreateFrame, "Frame", nil, parent, "InsetFrameTemplate")
+	if not ok or not f then f = CreateFrame("Frame", nil, parent) end
+	local bg = f:CreateTexture(nil, "BACKGROUND", nil, -8)
+	bg:SetAllPoints()
+	bg:SetColorTexture(0.05, 0.05, 0.06, 0.96)
+	f:EnableMouse(true)
+	return f
+end
+
+local BAR_H, PAD = 26, 4   -- the frame's title bar, and its border round the picture
+
 function ns.createWindow()
 	if root then return root end
 	WHITE = ns.gfxmeta.white
@@ -346,38 +360,53 @@ function ns.createWindow()
 	root:SetClampedToScreen(true)
 	root:SetMovable(true)
 	root:EnableMouse(true)
-	root:SetPoint("CENTER")
 	root:Hide()
 
-	local bg = root:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(0, 0, 0, 1)
+	-- the frame round the picture, with the title bar on top; the
+	-- picture (the canvas, below) is drawn over it
+	local chrome = ns.panelFrame(root)
+	chrome:SetPoint("TOPLEFT", root, "TOPLEFT", -PAD, BAR_H + PAD)
+	chrome:SetPoint("BOTTOMRIGHT", root, "BOTTOMRIGHT", PAD, -PAD)
+	chrome:SetFrameLevel(root:GetFrameLevel())
+	root:SetClampRectInsets(-PAD, PAD, BAR_H + PAD, -PAD)
 
 	-- title bar used for dragging
-	local bar = CreateFrame("Frame", nil, root)
-	bar:SetPoint("BOTTOMLEFT", root, "TOPLEFT", 0, 0)
-	bar:SetPoint("BOTTOMRIGHT", root, "TOPRIGHT", 0, 0)
-	bar:SetHeight(18)
+	local bar = CreateFrame("Frame", nil, chrome)
+	bar:SetPoint("TOPLEFT", chrome, "TOPLEFT", 0, 0)
+	bar:SetPoint("TOPRIGHT", chrome, "TOPRIGHT", 0, 0)
+	bar:SetHeight(BAR_H + PAD)
 	bar:EnableMouse(true)
 	bar:RegisterForDrag("LeftButton")
-	bar:SetScript("OnDragStart", function() root:StartMoving() end)
-	bar:SetScript("OnDragStop", function() root:StopMovingOrSizing() end)
-	local barbg = bar:CreateTexture(nil, "BACKGROUND")
-	barbg:SetAllPoints()
-	barbg:SetColorTexture(0.1, 0.1, 0.15, 0.9)
-	local title = bar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-	title:SetPoint("LEFT", 6, 0)
-	title:SetText("WowTyrian2k")
+	bar:SetScript("OnDragStart", function()
+		if not (ns.options and ns.options.lockWindow) then root:StartMoving() end
+	end)
+	bar:SetScript("OnDragStop", function()
+		root:StopMovingOrSizing()
+		-- remember where it was put (the frame isn't user-placed, so the
+		-- position is saved here)
+		local point, _, relPoint, x, y = root:GetPoint()
+		if ns.db and point then ns.db.windowPos = { point, relPoint, x, y } end
+	end)
+	local title = bar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	title:SetText("Tyrian")
+	title:SetJustifyH("LEFT")
+	title:SetWordWrap(false)
 	ns.titleText = title
 
 	local close = CreateFrame("Button", nil, bar, "UIPanelCloseButton")
-	close:SetSize(20, 20)
-	close:SetPoint("RIGHT", bar, "RIGHT", 0, 0)
-	close:SetScript("OnClick", function() ns.Hide() end)
+	close:SetSize(24, 24)
+	close:SetPoint("RIGHT", bar, "RIGHT", -2, 1)
+	title:SetPoint("LEFT", 10, 1)
+	title:SetPoint("RIGHT", close, "LEFT", -4, 0)
+	close:SetScript("OnClick", function() ns.closeWindow() end)
 
 	canvas = CreateFrame("Frame", nil, root)
 	canvas:SetAllPoints(root)
 	canvas:SetClipsChildren(true)
+	canvas:SetFrameLevel(root:GetFrameLevel() + 2)
+	local bg = canvas:CreateTexture(nil, "BACKGROUND", nil, -8)
+	bg:SetAllPoints()
+	bg:SetColorTexture(0, 0, 0, 1)
 
 	local top = CreateFrame("Frame", nil, root)
 	top:SetAllPoints(root)
@@ -386,9 +415,23 @@ function ns.createWindow()
 	overlay:SetAllPoints()
 	overlay:Hide()
 
-	ns.root, ns.canvas = root, canvas
+	ns.root, ns.canvas, ns.chrome = root, canvas, chrome
 	ns.setScale(ns.db and ns.db.scale or 3)
+	ns.applyWindowOptions()
 	return root
+end
+
+-- Position (saved or centred) and opacity from the options.
+function ns.applyWindowOptions()
+	if not root then return end
+	root:ClearAllPoints()
+	local pos = ns.db and ns.db.windowPos
+	if pos then
+		root:SetPoint(pos[1], UIParent, pos[2], pos[3], pos[4])
+	else
+		root:SetPoint("CENTER")
+	end
+	root:SetAlpha((ns.options and ns.options.alpha or 100) / 100)
 end
 
 function ns.setScale(s)

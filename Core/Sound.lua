@@ -44,6 +44,27 @@ function song_has_looped()
 	return playing and len ~= nil and GetTime() - songStart >= len
 end
 
+-- For the jukebox: how far into the song it is and the song's length (one
+-- pass), in seconds; nil while nothing is playing.  WoW can't seek or ask
+-- a sound where it is, so this is the time since it started.
+function ns.songPosition()
+	local len = songLength[song_playing]
+	if not playing or music_stopped or not len then return nil end
+	local t = GetTime() - songStart
+	if t > len then t = len end
+	return t, len
+end
+
+-- The song carries on past its end: WoW loops a PlayMusic track by itself,
+-- a one-shot song is started again.
+function ns.songLoop()
+	if nonLooping[song_playing] then
+		restart_song()
+	elseif songLength[song_playing] then
+		songStart = songStart + songLength[song_playing]
+	end
+end
+
 local PlaySoundFile, StopSound, PlayMusic, StopMusic =
 	_G_REAL.PlaySoundFile, _G_REAL.StopSound, _G_REAL.PlayMusic, _G_REAL.StopMusic
 
@@ -51,7 +72,27 @@ function init_audio() return true end
 function deinit_audio() stop_song() end
 function loadSndFile(xmas) end
 
+-- StopMusic gives the music back to WoW, so while the game window is open
+-- a silent track holds it instead whenever no song is using PlayMusic (the
+-- music stopped or off, or a one-shot song playing as a sound).  Otherwise
+-- the zone music would start under the game's.
+local SILENCE = SOUND_PATH .. "music\\silence.ogg"
+
+function ns.holdMusic()
+	if ns.root and ns.root:IsShown() then PlayMusic(SILENCE) else StopMusic() end
+end
+
 local function stopCurrentMusic()
+	if musicHandle then
+		StopSound(musicHandle, 500)
+		musicHandle = nil
+	end
+	ns.holdMusic()
+end
+
+-- The window closing: every game song stops and WoW gets its music back.
+-- The song is remembered, for restart_song when the window opens again.
+function ns.releaseMusic()
 	if musicHandle then
 		StopSound(musicHandle, 500)
 		musicHandle = nil

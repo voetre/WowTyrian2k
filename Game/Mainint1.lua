@@ -65,6 +65,7 @@ function JE_drawFlightBar()
 	else
 		text, done = LevelGen.barInfo()
 	end
+	if ns.options and ns.options.flightBar == false then text = nil end
 	if not text then
 		if flightBarShown then
 			flightBarShown = nil

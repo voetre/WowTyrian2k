@@ -92,7 +92,7 @@ function JE_loadMap()
 
 		local restartNewGame = false
 
-		if not playDemo and not genLevel then
+		if not playDemo and not genLevel and not bonusRun then
 			repeat
 				local episodeFile = dataFileOpen(episodeFilename)
 

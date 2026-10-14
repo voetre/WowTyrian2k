@@ -24,3 +24,26 @@ function FrameMT:IsShown() local f = self; while f do if not rawget(f, "shown") 
 local t = UIParent:CreateTexture()
 local TexMT = getmetatable(t)
 setmetatable(TexMT, { __index = function() return noop end })
+
+-- the minimap, for Core/Minimap.lua
+Minimap = CreateFrame("Frame", nil, UIParent)
+function Minimap:GetWidth() return 140 end
+function Minimap:GetCenter() return 1000, 700 end
+function Minimap:GetEffectiveScale() return 1 end
+
+-- WoW's global aliases, for the embedded libraries
+strmatch, strfind, strsub, strlen, strlower, strupper, strrep, gsub, format =
+	string.match, string.find, string.sub, string.len, string.lower, string.upper, string.rep, string.gsub, string.format
+tinsert, tremove, tconcat = table.insert, table.remove, table.concat
+function strtrim(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end
+function wipe(t) for k in pairs(t) do t[k] = nil end return t end
+function securecallfunction(f, ...) return f(...) end
+function TexMT:GetParent() return self.frame end
+function FrameMT:GetParent() return rawget(self, "parent") end
+function FrameMT:GetName() return nil end
+function FrameMT:HookScript(n, fn)
+  local old = self.scripts[n]
+  self.scripts[n] = old and function(...) old(...) fn(...) end or fn
+end
+local function stub() return setmetatable({}, { __index = function(t, k) return function() return stub() end end }) end
+function FrameMT:CreateAnimationGroup() return stub() end

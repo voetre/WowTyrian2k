@@ -2,8 +2,13 @@
 ## Title: WowTyrian2k
 ## Notes: OpenTyrian (Tyrian 2.1) ported to the WoW Lua engine. Type /tyrian to play.
 ## Author: voetre
-## Version: 0.2.0
+## Version: 0.3.0
 ## SavedVariables: WowTyrian2kDB
+
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+Libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
 
 Core\Env.lua
 Core\Util.lua
@@ -23,6 +28,7 @@ Core\Sprite.lua
 Core\Render.lua
 Core\Input.lua
 Core\Sound.lua
+Core\JukeboxUI.lua
 Game\Misc.lua
 Game\Text.lua
 Game\Config.lua
@@ -40,6 +46,7 @@ Game\Jukebox.lua
 Game\LevelGen.lua
 Game\Opentyr.lua
 Core\Options.lua
+Core\Minimap.lua
 Core\FlightData.lua
 Core\Flight.lua
 Core\FlightPrompt.lua

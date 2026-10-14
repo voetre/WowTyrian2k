@@ -15,6 +15,12 @@ local co
 local driver = _G.CreateFrame("Frame")
 local paused = false
 
+local function opt(k, default)
+	local v = ns.options and ns.options[k]
+	if v == nil then return default end
+	return v
+end
+
 local function reportError(err)
 	local stack = _G.debugstack and _G.debugstack(co, 1, 30, 30) or ""
 	ns.Print("|cffff4040Lua error in game:|r " .. tostring(err))
@@ -23,7 +29,112 @@ local function reportError(err)
 	if ns.db then ns.db.lastError = ns.lastError end
 end
 
+-- The window title: what the game is doing, at a glance --------------------
+
+-- The screens the game is in, innermost last.  The game's screen functions
+-- are wrapped to keep this up to date; a run that's cut short (an error, or
+-- a fresh start) leaves it half full, so startGame clears it.
+local modes = {}
+local function popTo(n, ...)
+	for i = #modes, n, -1 do modes[i] = nil end
+	return ...
+end
+for name, label in pairs({
+	intro_logos = "Intro", titleScreen = "Title Screen", setupMenu = "Setup",
+	jukebox = "Jukebox", JE_loadScreen = "Load Game", JE_highScoreScreen = "High Scores",
+	JE_helpSystem = "Help", JE_playCredits = "Credits", JE_main = "Playing",
+	JE_itemScreen = "Upgrade Ship", JE_endLevelAni = "Level Complete",
+	JE_pauseGame = "Paused", JE_doInGameSetup = "Options", JE_destructGame = "Destruct",
+}) do
+	local f = ns.G[name]
+	if f then
+		ns.G[name] = function(...)
+			local n = #modes + 1
+			modes[n] = label
+			return popTo(n, f(...))
+		end
+	end
+end
+
+local DIFFICULTY = { [0] = "Wimp", "Easy", "Normal", "Hard", "Impossible", "Insanity",
+	"Suicide", "Maniacal", "Zinglon", "Nortaneous", "Lord of the Game" }
+
+-- 1234567 -> "1,234,567"
+local function commas(n)
+	local s = tostring(math.floor(n or 0))
+	local k
+	repeat s, k = s:gsub("^(-?%d+)(%d%d%d)", "%1,%2") until k == 0
+	return s
+end
+
+local function trim(s) return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
+local function capital(s) return s:sub(1, 1):upper() .. s:sub(2):lower() end
+
+local function titleParts()
+	local mode = modes[#modes]
+	if not mode then return {} end
+	local parts = { mode }
+	local G = ns.G
+	local inGame = false
+	for i = 1, #modes do if modes[i] == "Playing" then inGame = true end end
+	if mode == "Jukebox" then
+		local name = G.song_playing and G.song_playing >= 0 and G.musicTitle[G.song_playing]
+		if name then parts[#parts + 1] = name end
+	elseif inGame then
+		-- where, how hard, and the score (the mode only when it's not just
+		-- playing: paused, the upgrade screen...)
+		if G.playDemo then
+			parts[1] = "Demo"
+		elseif G.genLevel then
+			if mode == "Playing" then parts[1] = "Generated Level" end
+			parts[#parts + 1] = capital(tostring(G.genLevel.name))
+		else
+			if mode == "Playing" then table.remove(parts, 1) end
+			local level = trim(G.levelName)
+			local ep = (G.episodeNum or 0) > 0 and ("Episode " .. G.episodeNum) or nil
+			if ep and level ~= "" then
+				parts[#parts + 1] = ep .. ": " .. capital(level)
+			elseif ep then
+				parts[#parts + 1] = ep
+			end
+		end
+		if not G.playDemo then
+			parts[#parts + 1] = DIFFICULTY[G.difficultyLevel]
+			local p = G.player and G.player[0]
+			if p and p.cash then parts[#parts + 1] = "Score " .. commas(p.cash) end
+		end
+	end
+	return parts
+end
+
+local lastTitle, titleAt = nil, 0
+local function updateTitle(force)
+	if not ns.titleText then return end
+	local now = _G.GetTime()
+	if not force and now - titleAt < 0.25 then return end
+	titleAt = now
+	local parts = titleParts()
+	-- on a flight, how long is left
+	local f = ns.Flight and ns.Flight.current
+	if f and f.eta then
+		local left = math.max(0, f.eta - (now - f.start))
+		parts[#parts + 1] = string.format("%s in %d:%02d", f.dest or "Landing", left / 60, left % 60)
+	end
+	local text = "Tyrian"
+	if #parts > 0 then text = text .. " - " .. table.concat(parts, "  \194\183  ") end
+	if force or text ~= lastTitle then
+		lastTitle = text
+		ns.titleText:SetText(text)
+	end
+end
+ns.updateTitle = updateTitle
+ns.titleModes = modes   -- for the test harness
+
 local function startGame()
+	for i = #modes, 1, -1 do modes[i] = nil end
+	-- a generated level cut short leaves its state behind
+	if LevelGen and LevelGen.abort then LevelGen.abort() end
+	ns.Jukebox.close()
 	co = coroutine.create(function()
 		ns.gameMain()
 	end)
@@ -116,6 +227,7 @@ driver:SetScript("OnUpdate", function()
 	local t0 = ns.db and ns.db.perf and _G.debugprofilestop and _G.debugprofilestop()
 	updateMouse()
 	step()
+	updateTitle()
 	if t0 then perfUpdate(_G.debugprofilestop() - t0) end
 end)
 
@@ -186,6 +298,15 @@ function ns.Show()
 		ns.scriptsSet = true
 		root:SetScript("OnKeyDown", function(self, key)
 			if not _G.InCombatLockdown() then self:SetPropagateKeyboardInput(false) end
+			-- the toggle key binding still closes the window
+			if _G.GetBindingAction then
+				local mod = (_G.IsAltKeyDown() and "ALT-" or "") .. (_G.IsControlKeyDown() and "CTRL-" or "")
+					.. (_G.IsShiftKeyDown() and "SHIFT-" or "")
+				if _G.GetBindingAction(mod .. key) == "WOWTYRIAN2K_TOGGLE" then
+					ns.closeWindow()
+					return
+				end
+			end
 			if key == "F12" then
 				-- render state dump (Core/Debug.lua)
 				local ok, err = pcall(ns.debugDump)
@@ -212,15 +333,21 @@ function ns.Show()
 	setKeyboard(true)
 	paused = false
 	if not co then startGame() end
-	if song_playing and song_playing >= 0 and not music_stopped then restart_song() end
+	if song_playing and song_playing >= 0 and not music_stopped then restart_song() else ns.holdMusic() end
 end
 
-function ns.Hide()
+-- Hides the window.  The game stays where it was (paused) unless endRun,
+-- which drops it so the next Show starts a fresh one.
+function ns.Hide(endRun)
 	if not ns.root then return end
+	if endRun then
+		co = nil
+		ns.Jukebox.close()
+	end
 	setKeyboard(false)
 	ns.releaseAllKeys()
 	ns.root:Hide()
-	_G.StopMusic()
+	ns.releaseMusic()
 	ns.releaseAudio()
 	ns.saveDB()
 end
@@ -233,8 +360,40 @@ function ns.playGenLevel(req)
 	if ns.root and ns.root:IsShown() then startGame() else ns.Show() end
 end
 
+-- Closing the window by hand (close button, /tyrian, key binding): the
+-- "when closed" option says whether that pauses or ends the game.
+function ns.closeWindow()
+	ns.Hide(opt("onHide", "pause") == "end")
+end
+
 function ns.Toggle()
-	if ns.root and ns.root:IsShown() then ns.Hide() else ns.Show() end
+	if ns.root and ns.root:IsShown() then ns.closeWindow() else ns.Show() end
+end
+
+-- For Bindings.xml.
+function _G.WowTyrian2k_Toggle() ns.Toggle() end
+_G.BINDING_HEADER_WOWTYRIAN2K = "WowTyrian2k"
+_G.BINDING_NAME_WOWTYRIAN2K_TOGGLE = "Show or hide Tyrian"
+
+function ns.restartGame()
+	co = nil
+	if ns.root and ns.root:IsShown() then startGame() end
+end
+
+-- Puts the window back in the middle at the default size.
+function ns.resetWindow()
+	ns.db.windowPos = nil
+	ns.db.scale = 3
+	if ns.root then
+		ns.setScale(3)
+		ns.applyWindowOptions()
+	end
+end
+
+function ns.setPerf(on)
+	ns.db.perf = on and true or nil
+	if not on and perf.text then perf.text:Hide() end
+	perf.start = 0
 end
 
 -- Saved variables -----------------------------------------------------------------
@@ -246,6 +405,13 @@ end
 driver:RegisterEvent("ADDON_LOADED")
 driver:RegisterEvent("PLAYER_LOGOUT")
 driver:RegisterEvent("PLAYER_REGEN_DISABLED")
+-- things that need the player's attention (the "hide on alerts" option);
+-- not every client has all of them
+local ALERTS = { "READY_CHECK", "LFG_PROPOSAL_SHOW", "CHAT_MSG_WHISPER", "CHAT_MSG_BN_WHISPER" }
+local isAlert = {}
+for _, e in ipairs(ALERTS) do
+	if pcall(driver.RegisterEvent, driver, e) then isAlert[e] = true end
+end
 driver:SetScript("OnEvent", function(self, event, arg1)
 	if event == "ADDON_LOADED" and arg1 == addonName then
 		_G.WowTyrian2kDB = _G.WowTyrian2kDB or {}
@@ -257,8 +423,12 @@ driver:SetScript("OnEvent", function(self, event, arg1)
 		ns.releaseAudio()
 		ns.saveDB()
 	elseif event == "PLAYER_REGEN_DISABLED" then
-		-- Entering combat: give the keyboard back to the player.
-		if ns.root and ns.root:IsShown() then ns.Hide() end
+		-- Entering combat: give the keyboard back to the player (the "in
+		-- combat" option: pause, end the game, or keep playing).
+		local mode = opt("onCombat", "pause")
+		if mode ~= "keep" and ns.root and ns.root:IsShown() then ns.Hide(mode == "end") end
+	elseif isAlert[event] then
+		if opt("hideOnAlert", false) and ns.root and ns.root:IsShown() then ns.Hide() end
 	end
 end)
 
@@ -279,9 +449,11 @@ _G.SlashCmdList.WOWTYRIAN2K = function(msg)
 	elseif cmd == "options" or cmd == "config" or cmd == "settings" then
 		ns.openOptions()
 	elseif cmd == "reset" then
-		co = nil
+		ns.resetWindow()
+		ns.Print("window position and size reset")
+	elseif cmd == "restart" then
+		ns.restartGame()
 		ns.Print("game restarted")
-		if ns.root and ns.root:IsShown() then startGame() end
 	elseif cmd == "genlevel" then
 		-- test the level generator: /tyrian genlevel [theme] [seed]
 		local name, seed = arg:match("^(%a*)%s*(%d*)")
@@ -309,8 +481,9 @@ _G.SlashCmdList.WOWTYRIAN2K = function(msg)
 		end
 	elseif cmd == "flightprompt" then
 		-- the "Play Tyrian?" prompt when a flight starts
-		ns.db.flightPrompt = ns.db.flightPrompt == false
-		ns.Print("flight prompt " .. (ns.db.flightPrompt and "on" or "off"))
+		local o = ns.options
+		o.flightMode = o.flightMode == "off" and "ask" or "off"
+		ns.Print("flight prompt " .. (o.flightMode == "off" and "off" or "on"))
 	elseif cmd == "flights" then
 		-- flight time estimates in chat when taking a flight
 		ns.db.flightInfo = ns.db.flightInfo == false
@@ -324,9 +497,7 @@ _G.SlashCmdList.WOWTYRIAN2K = function(msg)
 		local ok, err = pcall(ns.debugDump)
 		if not ok then ns.Print("dump failed: " .. tostring(err)) end
 	elseif cmd == "perf" then
-		ns.db.perf = not ns.db.perf
-		if not ns.db.perf and perf.text then perf.text:Hide() end
-		perf.start = 0
+		ns.setPerf(not ns.db.perf)
 		ns.Print("performance meter " .. (ns.db.perf and "on" or "off"))
 	elseif cmd == "stats" then
 		local update = (_G.C_AddOns and _G.C_AddOns.UpdateAddOnMemoryUsage) or _G.UpdateAddOnMemoryUsage

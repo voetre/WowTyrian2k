@@ -14,9 +14,6 @@ local floor, sin, cos, sqrt, abs = math.floor, math.sin, math.cos, math.sqrt, ma
 
 local function trunc(x) if x >= 0 then return floor(x) end return -floor(-x) end
 
-local SC_LEFTBRACKET, SC_RIGHTBRACKET, SC_SEMICOLON, SC_GRAVE, SC_COMMA, SC_PERIOD = 47, 48, 51, 53, 54, 55
-local function letter(c) return SDL_SCANCODE_A + string.byte(c) - 65 end
-
 musicTitle = {
 	[0] = "Asteroid Dance Part 2", "Asteroid Dance Part 1", "Buy/Sell Music", "CAMANIS", "CAMANISE",
 	"Deli Shop Quartet", "Deli Shop Quartet No. 2", "Ending Number 1", "Ending Number 2", "End of Level",
@@ -198,7 +195,51 @@ local function JE_starlib_init()
 	end
 end
 
--- Returns the keyboard input (if any) after handling the starfield's keys.
+-- The visualizer's controls (the jukebox's buttons; the original's keys).
+local function setPattern(n)
+	if n > 0 then
+		JE_changeSetup(n)
+	else
+		JE_changeSetup(1)
+		setup = 0
+	end
+end
+
+local function starCommand(cmd, arg)
+	if cmd == "pattern" then
+		setPattern(arg)
+	elseif cmd == "autochange" then
+		doChange = arg
+	elseif cmd == "colour" then
+		pColor = arg
+	elseif cmd == "speed" then
+		starlib_speed = arg
+		speedChange = 0
+	elseif cmd == "reset" then
+		JE_resetValues()
+		setPattern(2)
+		doChange = true
+	else
+		return false
+	end
+	return true
+end
+
+-- The visualizer's settings, saved between sessions.
+local function saveVisualizer(prefs)
+	prefs.visualizer = { pattern = setup, autoChange = doChange, speed = starlib_speed, colour = pColor }
+end
+
+local function loadVisualizer(prefs)
+	local v = prefs.visualizer
+	if type(v) ~= "table" then return end
+	if type(v.pattern) == "number" and v.pattern >= 0 and v.pattern <= MAX_TYPES then setPattern(v.pattern) end
+	if type(v.autoChange) == "boolean" then doChange = v.autoChange end
+	if type(v.speed) == "number" then starlib_speed, speedChange = v.speed, 0 end
+	if type(v.colour) == "number" then pColor = v.colour end
+end
+
+-- Moves the starfield on; returns the keyboard input (if any).
 local function starLibMain()
 	starlib_speed = s16(starlib_speed + speedChange)
 
@@ -233,40 +274,6 @@ local function starLibMain()
 
 	local keyboardInput = keyboardGetInput()
 
-	if keyboardInput and keyboardInput.scancode ~= -1 then
-		local sc = keyboardInput.scancode
-		local shift = band(keyboardInput.mod, KMOD_SHIFT) ~= 0
-		local other = band(keyboardInput.mod, bor(KMOD_CTRL, KMOD_ALT)) ~= 0
-		if not other then
-			if shift and sc == SDL_SCANCODE_EQUALS then
-				starlib_speed = starlib_speed + 1
-				speedChange = 0
-			elseif not shift and sc == SDL_SCANCODE_MINUS then
-				starlib_speed = starlib_speed - 1
-				speedChange = 0
-			elseif sc >= SDL_SCANCODE_1 and sc <= SDL_SCANCODE_0 then
-				local n = sc - SDL_SCANCODE_1 + 1
-				if shift then
-					if n <= 4 then JE_changeSetup(10 + n) end
-				else
-					JE_changeSetup(n)
-				end
-			elseif sc == letter("C") then
-				JE_resetValues()
-			elseif sc == letter("S") then
-				nspVarVarInc = mt_rand_1() * 0.01 - 0.005
-			elseif sc == SC_LEFTBRACKET then
-				pColor = u8(pColor - (shift and 72 or 1))
-			elseif sc == SC_RIGHTBRACKET then
-				pColor = u8(pColor + (shift and 72 or 1))
-			elseif sc == SC_GRAVE and not shift then
-				doChange = not doChange
-			elseif sc == letter("P") then
-				waitUntilGetInput()
-			end
-		end
-	end
-
 	if doChange then
 		stepCounter = stepCounter + 1
 		if stepCounter > changeTime then
@@ -287,26 +294,59 @@ end
 
 function jukebox()
 	local trigger_quit, quitting = false, false
-	local hide_text = false
-	local fade_looped_songs = true
 	local stopped = false
-	local fx = false
-	local fx_num = 0
 	local palette_fade_steps = 15
+
+	-- the player's choices, kept between visits
+	local prefs = ns.db and ns.db.jukebox or {}
+	if ns.db then ns.db.jukebox = prefs end
+	prefs.shuffle = false   -- always starts in order
+	if prefs.showText == nil then prefs.showText = true end
 
 	vga_palette = vga_palette or buildVgaPalette()
 	set_palette(vga_palette, 0, 255)
 	fadeColor[1], fadeColor[2], fadeColor[3] = 0, 0, 0
 	fadeAlpha = 1
 
-	JE_starlib_init()
+	-- first visit since a reload: the saved settings, not the defaults
+	if not starlibInitialized then
+		JE_starlib_init()
+		loadVisualizer(prefs)
+	end
+
+	local UI = ns.Jukebox
+	UI.open()
+
+	-- the songs played, for going back while shuffling
+	local history = {}
+
+	local function nextSong(dir)
+		if dir > 0 then
+			if song_playing >= 0 then
+				history[#history + 1] = song_playing
+				if #history > 100 then table.remove(history, 1) end
+			end
+			if prefs.shuffle then
+				local n = mt_rand() % (MUSIC_NUM - 1)
+				play_song(n >= song_playing and n + 1 or n)   -- not the same one again
+			else
+				play_song((song_playing + 1) % MUSIC_NUM)
+			end
+		elseif prefs.shuffle and #history > 0 then
+			play_song(table.remove(history))
+		else
+			play_song((song_playing > 0 and song_playing or MUSIC_NUM) - 1)
+		end
+		stopped = false
+	end
 
 	while true do
 		if not stopped and not audio_disabled then
-			-- The music cannot be faded, so a looped song is simply replaced
-			-- (WoW cross-fades music tracks).
-			if not playing or (fade_looped_songs and song_has_looped()) then
-				play_song(mt_rand() % MUSIC_NUM)
+			if not playing then
+				nextSong(1)
+			elseif song_has_looped() then
+				-- the end of the song: again, or on to the next
+				if prefs.loop then ns.songLoop() else nextSong(1) end
 			end
 		end
 
@@ -316,20 +356,9 @@ function jukebox()
 
 		local keyboardInput = starLibMain()
 
-		if not hide_text then
-			local buffer
-			if fx then
-				buffer = sprintf("%d %s", fx_num + 1, soundTitle[fx_num])
-			elseif song_playing >= 0 then
-				buffer = sprintf("%d %s", song_playing + 1, musicTitle[song_playing])
-			else
-				buffer = ""
-			end
-
-			local x = idiv(VGAScreen.w, 2)
-			drawFontHvAligned(VGAScreen, x, 170, "Press ESC to quit the jukebox.", FONT_SMALL, ALIGN_CENTER, 1, 0)
-			drawFontHvAligned(VGAScreen, x, 180, "Arrow keys change the song being played.", FONT_SMALL, ALIGN_CENTER, 1, 0)
-			drawFontHvAligned(VGAScreen, x, 190, buffer, FONT_SMALL, ALIGN_CENTER, 1, 4)
+		if prefs.showText and song_playing >= 0 then
+			drawFontHvAligned(VGAScreen, idiv(VGAScreen.w, 2), 190,
+				sprintf("%d %s", song_playing + 1, musicTitle[song_playing]), FONT_SMALL, ALIGN_CENTER, 1, 4)
 		end
 
 		if palette_fade_steps > 0 then
@@ -346,54 +375,70 @@ function jukebox()
 
 		waitUntilElapsed()
 
-		-- Quit on mouse click.
-		if mouseGetInput(INPUT_NO_MOTION) then
-			trigger_quit = true
+		-- right-click quits (left clicks are for the controls around the window)
+		local m = mouseGetInput(INPUT_NO_MOTION)
+		while m do
+			if m.button == SDL_BUTTON_RIGHT then trigger_quit = true end
+			m = mouseGetInput(INPUT_NO_MOTION)
 		end
 
-		if keyboardInput and keyboardInput.scancode ~= -1 then
+		local cmds = UI.take()
+		if keyboardInput and keyboardInput.scancode ~= -1
+			and band(keyboardInput.mod, bor(KMOD_CTRL, KMOD_ALT)) == 0 then
 			local sc = keyboardInput.scancode
-			local other = band(keyboardInput.mod, bor(KMOD_CTRL, KMOD_ALT)) ~= 0
-			if not other then
-				if sc == SDL_SCANCODE_ESCAPE or sc == letter("Q") then
-					trigger_quit = true
-				elseif sc == SDL_SCANCODE_SPACE then
-					hide_text = not hide_text
-				elseif sc == letter("F") then
-					-- fade out the current song: move on to another one
-					play_song(mt_rand() % MUSIC_NUM)
-					stopped = false
-				elseif sc == letter("N") then
-					fade_looped_songs = not fade_looped_songs
-				elseif sc == SDL_SCANCODE_SLASH then
-					fx = not fx
-				elseif sc == SC_COMMA then
-					if fx then
-						fx_num = fx_num - 1
-						if fx_num < 0 then fx_num = SOUND_COUNT - 1 end
-					end
-				elseif sc == SC_PERIOD then
-					if fx then
-						fx_num = fx_num + 1
-						if fx_num >= SOUND_COUNT then fx_num = 0 end
-					end
-				elseif sc == SC_SEMICOLON then
-					if fx then JE_playSampleNum(fx_num + 1) end
-				elseif sc == SDL_SCANCODE_LEFT or sc == SDL_SCANCODE_UP then
-					play_song((song_playing > 0 and song_playing or MUSIC_NUM) - 1)
-					stopped = false
-				elseif sc == SDL_SCANCODE_RETURN or sc == SDL_SCANCODE_RIGHT or sc == SDL_SCANCODE_DOWN then
-					play_song((song_playing + 1) % MUSIC_NUM)
-					stopped = false
-				elseif sc == letter("S") then
-					stop_song()
-					stopped = true
-				elseif sc == letter("R") then
-					restart_song()
-					stopped = false
-				end
+			if sc == SDL_SCANCODE_ESCAPE then
+				cmds[#cmds + 1] = { "quit" }
+			elseif sc == SDL_SCANCODE_LEFT or sc == SDL_SCANCODE_UP then
+				cmds[#cmds + 1] = { "prev" }
+			elseif sc == SDL_SCANCODE_RETURN or sc == SDL_SCANCODE_RIGHT or sc == SDL_SCANCODE_DOWN then
+				cmds[#cmds + 1] = { "next" }
+			elseif sc == SDL_SCANCODE_SPACE then
+				cmds[#cmds + 1] = { "playstop" }
 			end
 		end
+
+		for _, c in ipairs(cmds) do
+			local cmd = c[1]
+			if cmd == "quit" then
+				trigger_quit = true
+			elseif cmd == "prev" then
+				-- a few seconds in, back to the start of this song first
+				local t = ns.songPosition()
+				if t and t > 3 then
+					restart_song()
+					stopped = false
+				else
+					nextSong(-1)
+				end
+			elseif cmd == "next" then
+				nextSong(1)
+			elseif cmd == "play" then
+				if c[2] == song_playing and not stopped then restart_song() else play_song(c[2]) end
+				stopped = false
+			elseif cmd == "playstop" then
+				if stopped then
+					if song_playing >= 0 then restart_song() else nextSong(1) end
+					stopped = false
+				else
+					stop_song()
+					stopped = true
+				end
+			elseif cmd == "shuffle" then
+				prefs.shuffle = not prefs.shuffle
+			elseif cmd == "loop" then
+				prefs.loop = not prefs.loop
+			elseif cmd == "text" then
+				prefs.showText = c[2]
+			elseif starCommand(cmd, c[2]) then
+				saveVisualizer(prefs)
+			end
+		end
+
+		UI.update({
+			song = song_playing, stopped = stopped, shuffle = prefs.shuffle, loop = prefs.loop and true or false,
+			showText = prefs.showText, pattern = setup, autoChange = doChange,
+			speed = starlib_speed, colour = pColor,
+		})
 
 		-- user wants to quit, start fade-out
 		if trigger_quit and not quitting then
@@ -407,6 +452,7 @@ function jukebox()
 		end
 	end
 
+	UI.close()
 	fadeAlpha = 1
 	ns.paletteDirty = true
 end

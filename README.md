@@ -31,7 +31,7 @@ A clone of this repository works too, since it includes the data: copy or link t
 checkout to `Interface/AddOns/WowTyrian2k`. The code-only zip needs the data built
 first; see [Game data](#game-data).
 
-> Interface 16001 (Classic). Version 0.2.0.
+> Interface 16001 (Classic). Version 0.3.0.
 
 ## Changes from OpenTyrian
 
@@ -75,6 +75,14 @@ first; see [Game data](#game-data).
 - **Flight bar:** during a level, the strip at the bottom of the screen shows the
   destination, the flight time left and a fill bar. It adds `BOSS` while the boss fight
   is on, then `BOSS DESTROYED`.
+- **Bonus level:** if you beat the boss with at least 70 seconds of flight left, you're
+  offered one of Tyrian's secret levels (Fire to play, Esc to skip). It ends 10 seconds
+  before landing, or earlier if you die or the level finishes. It has no shop and isn't saved.
+  Both times can be changed in the options.
+- **Score card:** when a generated level (and any bonus level) is over, a card shows the
+  run's stats: time, boss, drops, kill rate, bonus level and score. Fire or Esc closes the
+  game, and the next `/tyrian` or flight starts fresh. Every run is recorded on the
+  Statistics options page.
 
 ### Level generator (new)
 
@@ -108,13 +116,56 @@ A 2-minute level is at about 95%; a 10-minute level is at about 36%.
 
 ### Quality-of-life and tooling (new)
 
-- **Options page** under Options > AddOns: skip intro logos, window scale (1-6×), game
-  speed, and music and effects toggles and volumes.
-- **Cheats sub-page:**
-  - infinite shield, armour, generator power and sidekick ammo
-  - invincibility, instant kill, unlimited credits
-  - **All shop items:** every item from any episode's shop, in scrolling lists
-  - **Secret items:** for example the Nort Ship, Stalker and Banana Blast
+- **Options** under Options > AddOns > WowTyrian2k. The top page has the Tyrian logo,
+  a "Play Tyrian" button, how to play and the credits; the settings are on its
+  sub-pages:
+  - **Game:** skip intro logos, game speed (a dropdown).
+  - **Sound:** music and effects toggles and volumes, and whether the WoW volume sliders
+    follow the game's.
+  - **Window:** window scale (1-6×), lock the window (its position is remembered),
+    opacity, the minimap button, whether closing the window pauses or ends the game, what entering combat
+    does (hide and pause, hide and end, or keep playing), and hiding for ready checks,
+    queue pops and whispers.
+  - **Flight Mode:** what happens when a flight starts (ask, start a game, or nothing),
+    flight time chat messages, the flight bar, the theme, the shortest game offered, how
+    long before landing a level ends, and forgetting recorded flight times.
+  - **Generated Levels:** difficulty (−2 to +2), a fixed arcade power instead of one set
+    by the level length, drop rate, enemy density, random music, bonus levels and the
+    flight time they need, the score card and its music, and going back to the title
+    screen after a run instead of closing.
+  - **Statistics:** lifetime totals, the best score for each theme and the last 20 runs.
+  - **Cheats:**
+    - infinite shield, armour, generator power and sidekick ammo
+    - invincibility, instant kill, unlimited credits
+    - **All shop items:** every item from any episode's shop, in scrolling lists
+    - **Secret items:** for example the Nort Ship, Stalker and Banana Blast
+    - the number of lives a flight mode level starts with, and an option to turn
+      every cheat off during flight mode levels
+  - **Advanced:** debug messages, the performance meter, clearing debug dumps,
+    restarting the game and resetting every setting.
+- **Jukebox controls** (Setup > Jukebox): a media panel under the game window in the
+  style of the WoW settings window, with:
+  - the song's title, track number and a progress bar (WoW can't seek or pause music, so
+    the bar shows the position only)
+  - shuffle, previous, play/stop, next and loop buttons
+  - visualizer dropdowns for pattern, speed and colours, auto-change and reset
+  - a track list beside the panel that can be folded away, and a compact mode that shows
+    just the title, progress and media buttons
+
+  The keys still work: Left/Up previous, Right/Down/Enter next, Space play/stop, Esc
+  leaves. The song keeps playing when you go back to the title screen, and the WoW music
+  is put back the way it was when the game closes. The layout, loop, title-on-screen and
+  visualizer settings are saved between sessions; shuffle always starts off.
+- **Window frame** in the same style, with a title bar that shows what the game is doing:
+  the screen (Title Screen, Jukebox, Upgrade Ship, Paused...), the episode and level,
+  the difficulty and score while playing, the song in the jukebox, and on a flight the
+  destination and time left.
+- **Minimap button** showing the USP Talon, the ship you start with: left-click plays
+  or hides the game (like `/tyrian`), right-click opens the options, drag to move it
+  round the minimap. It uses LibDBIcon, so minimap button addons can gather or hide it.
+- **Key binding:** "Show or hide Tyrian", under Key Bindings > AddOns. It also closes the
+  window while the game has the keyboard.
+- Esc (or Quit) on the title screen closes the game.
 - **Debug dump** (F12 or `/tyrian dump`) records:
   - the level, scroll positions and layer draw order
   - every live enemy and the event that spawned it
@@ -133,10 +184,11 @@ A 2-minute level is at about 95%; a 10-minute level is at about 36%.
 | `scale <1-6>` | Window scale |
 | `options` | Open the options page |
 | `reset` | Reset the window position and size |
+| `restart` | Restart the game (saved games are kept) |
 | `genlevel [forest\|ocean] [seed]` | Play an endless generated level |
 | `timedlevel <2m\|120\|4:30> [theme] [seed]` | Play a timed generated level that ends with a boss |
 | `flighttest <duration> [theme] [seed]` / `flighttest stop` | Fake a flight, to try the toast and flight bar |
-| `flightprompt` | Turn the flight toast on or off |
+| `flightprompt` | Turn the flight toast on or off (see the Flight Mode options for more) |
 | `flights` | Turn flight time chat messages on or off |
 | `dump` | Make a render state dump (also F12) |
 | `perf` | Turn the performance meter on or off |
@@ -158,6 +210,12 @@ python3 tools/convert.py <tyrian21 dir> .
 
 # Level generator library -> Data/levgen.lua
 python3 tools/levgen/build.py <tyrian21 dir> .
+
+# Minimap icon: the USP Talon from Textures/sheet_ship9.tga -> Textures/icon.tga
+python3 tools/make_icon.py .
+
+# Jukebox media button icons -> Textures/media.tga
+python3 tools/make_media_icons.py .
 
 # Sound effects -> Sound/sfx/sfxNN_vV.ogg (needs ffmpeg)
 python3 tools/make_sfx.py <tyrian21 dir> Sound/sfx
@@ -214,6 +272,8 @@ python3 compose.py <addon dir> dump_*.txt
   timohausmann, licensed under
   [CC BY 2.0](https://creativecommons.org/licenses/by/2.0/). They were reformatted as a
   Lua table; the times themselves are unchanged.
+- **Libraries** in `Libs/`, unchanged: LibStub, CallbackHandler-1.0, LibDataBroker-1.1
+  and LibDBIcon-1.0, by their authors under their own terms.
 - World of Warcraft is a trademark of Blizzard Entertainment. This project is not
   affiliated with Blizzard or with the OpenTyrian project.
 

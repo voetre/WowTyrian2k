@@ -22,6 +22,14 @@ setfenv(1, ns.G)
 
 local strbyte, floor = string.byte, math.floor
 
+-- Addon option k (Core/Options.lua), or `default` before the options load.
+local function opt(k, default)
+	local o = ns.options
+	local v = o and o[k]
+	if v == nil then return default end
+	return v
+end
+
 -- Park-Miller generator, kept apart from mt_rand so demos and replays are
 -- not disturbed.
 local function newRng(seed)
@@ -220,6 +228,19 @@ local DROP_CHANCE = 0.12  -- share of kills that drop something at factor 0 ...
 local DROP_CHANCE_ADD = 0.13  -- ... plus this at factor 1
 local BOSS_LEVEL_ADD = 3  -- the boss is up to this many levels harder
 local RAMP_LEVEL_ADD = 1  -- the waves are up to this many levels harder
+-- Enemy density option: share of the template's waves kept, and a change
+-- to the random enemies' frequency cap (lower spawns more).
+local DENSITY = {
+	low = { keep = 0.6, freq = 3 },
+	normal = { keep = 1, freq = 0 },
+	high = { keep = 1.25, freq = -4 },
+}
+local function density() return DENSITY[opt("genDensity", "normal")] or DENSITY.normal end
+
+-- The difficulty level with the difficulty option added.
+local function difficulty(level)
+	return math.max(1, math.min(8, level + opt("genDifficulty", 0)))
+end
 -- Songs (0-based) that aren't level music: shop, title, ending, game over...
 local NOT_LEVEL_SONG = {
 	[2] = true, [5] = true, [6] = true, [7] = true, [8] = true, [9] = true,
@@ -291,18 +312,28 @@ function LevelGen.beginTest(name, seed, seconds)
 		-- arcade play, scaled by the power factor
 		local f = (LONG_SECONDS - seconds) / (LONG_SECONDS - MIN_SECONDS)
 		f = math.max(0, math.min(1, f))
+		local fixed = opt("genPower", -1)
+		if fixed >= 0 then f = fixed / 100 end
 		g.power = f
 		g.drops = 0
 		onePlayerAction = true
+		-- the "no cheats in flight mode" option swaps in an empty cheat
+		-- table until LevelGen.endTest
+		local saved = ns.options and ns.options.cheats or cheats
+		if opt("noFlightCheats", false) then cheats = {} end
 		local front = player[0].items.weapon[FRONT_WEAPON]
 		front.power = START_POWER + floor(f * START_POWER_ADD + 0.5)
+		if cheats.lives and cheats.lives > 0 then front.power = math.min(11, cheats.lives + 1) end
 		g.startPower = front.power
+		g.savedCheats = saved
 		-- any level song
-		local songs = {}
-		for i = 0, MUSIC_NUM - 1 do
-			if not NOT_LEVEL_SONG[i] then songs[#songs + 1] = i end
+		if opt("randomMusic", true) then
+			local songs = {}
+			for i = 0, MUSIC_NUM - 1 do
+				if not NOT_LEVEL_SONG[i] then songs[#songs + 1] = i end
+			end
+			levelSong = songs[1 + g.rnd(#songs)] + 1
 		end
-		levelSong = songs[1 + g.rnd(#songs)] + 1
 	end
 	ns.Print(sprintf("Generated level: %s theme, seed %d, enemies from %s (episode %d)%s.",
 		th.name, seed, src.name, src.ep, seconds and sprintf(", %s long, power %d%%, %d lives",
@@ -327,7 +358,213 @@ function LevelGen.endTest()
 			floor(g.power * 100 + 0.5), g.startPower, g.drops))
 	end
 	if g and g.seconds then onePlayerAction = false end
+	if g and g.savedCheats then cheats = g.savedCheats end
 	genLevel = nil
+end
+
+-- Clears a generated level that was cut short (the game restarted in the
+-- middle of it), so the next game starts clean.
+function LevelGen.abort()
+	if genLevel then LevelGen.endTest() end
+	bonusRun = nil
+	bonusLevelCurrent = false
+end
+
+-- Secret and bonus levels of the original episodes, one of which is offered
+-- after a timed level finished with flight time to spare:
+-- { episode, level number in tyrianN.lvl, song, name }.
+local BONUS_LEVELS = {
+	{ 1, 4, 26, "BUBBLES" }, { 1, 3, 2, "ASTEROID?" }, { 1, 6, 23, "MINEMAZE" },
+	{ 1, 10, 18, "BONUS" }, { 1, 11, 24, "HOLES" }, { 1, 14, 26, "WINDY" },
+	{ 2, 3, 28, "BONUS" }, { 2, 7, 24, "GEM WAR" }, { 2, 8, 2, "MARKERS" },
+	{ 2, 9, 17, "MISTAKES" }, { 2, 12, 28, "BONUS" },
+	{ 3, 5, 28, "BONUS" }, { 3, 12, 7, "MACES" },
+	{ 4, 11, 6, "?TUNNEL?" }, { 4, 2, 1, "WINDY II" }, { 4, 10, 2, "DESERTRUN" },
+	{ 4, 20, 35, "ICESECRET" },
+}
+-- flight seconds needed for a bonus level (option, default 60)
+local function bonusMin() return opt("bonusMin", 60) end
+-- a level ends this long before the landing (option, default 10)
+local function landMargin() return opt("flightMargin", 10) end
+LevelGen.landMargin = landMargin
+
+-- The bonus level for timed level `g`, or nil when it wasn't finished or
+-- there isn't enough flight left.
+local function bonusFor(g)
+	if not (g and g.seconds and g.bossOn and endLevel and not playerEndLevel) then return end
+	if not opt("genBonus", true) or all_players_dead() then return end
+	local left = ns.Flight and ns.Flight.remaining()
+	if not left or left - landMargin() < bonusMin() then return end
+	local list = {}
+	for _, b in ipairs(BONUS_LEVELS) do
+		if dataFileExists(sprintf("tyrian%d.lvl", b[1])) then list[#list + 1] = b end
+	end
+	if #list == 0 then return end
+	return list[1 + newRng(g.seed + 13)(#list)], left
+end
+
+-- True on Fire or Enter, false on Esc.
+local function fireOrEsc()
+	keyboardClearInput()
+	while true do
+		local k = keyboardGetInput()
+		if k then return k.scancode ~= SDL_SCANCODE_ESCAPE end
+		if mouseGetInput(INPUT_NO_MOTION) then return true end
+		ns.yieldFrame()
+	end
+end
+
+-- After timed level `g`: offers a bonus level when it was finished with
+-- flight time to spare, and on Fire sets it up to play (bonusRun) with the
+-- ship as it is.  Returns true when the caller should run JE_main.
+function LevelGen.offerBonus(g)
+	local b, left = bonusFor(g)
+	if not b then return false end
+	g.bonusOffered = sprintf("%s ep %d", b[4], b[1])
+	if opt("scoreCardMusic", true) then play_song(26) end
+	JE_clr256(VGAScreen)
+	copyPalette(colors, palettes[6 - 1])
+	local lines = {
+		{ "BONUS LEVEL", 60 },
+		{ b[4], 80 },
+		{ sprintf("%s of flight left", LevelGen.clockText(left)), 110 },
+		{ "Fire to play, Esc to skip", 130 },
+	}
+	for _, l in ipairs(lines) do
+		JE_dString(VGAScreen, JE_fontCenter(l[1], SMALL_FONT_SHAPES), l[2], l[1], SMALL_FONT_SHAPES)
+	end
+	JE_showVGA()
+	fade_palette(colors, 15, 0, 255)
+	local yes = fireOrEsc()
+	fade_black(15)
+	if not yes then return false end
+
+	JE_initEpisode(b[1])
+	lvlFileNum = b[2]
+	levelSong = b[3]
+	levelName = b[4]
+	mainLevel, nextLevel = 1, 1
+	bonusLevelCurrent, normalBonusLevelCurrent = true, false
+	difficultyLevel = DIFFICULTY_NORMAL
+	bonusRun = { name = b[4] }
+	ns.Print(sprintf("Bonus level: %s (episode %d).", b[4], b[1]))
+	return true
+end
+
+-- Stats of the level JE_main just played: kill percentage, score so far and
+-- whether the ship was lost.
+function LevelGen.levelStats()
+	return {
+		kills = (totalEnemy == 0) and 0 or idiv(enemyKilled * 100, totalEnemy),
+		cash = player[0].cash,
+		dead = all_players_dead(),
+	}
+end
+
+-- The score card after a generated level (and its bonus level, if played):
+-- `run` is the LevelGen.levelStats of the level, `bonus` of the bonus level,
+-- `flight` the flight it was played on (it may have landed since).  Waits for
+-- Fire or Esc, then leaves a black screen.
+function LevelGen.scoreCard(g, run, bonus, flight)
+	local lines = {}
+	local function row(label, value) lines[#lines + 1] = { label, value } end
+	local dead = run.dead or (bonus and bonus.dead)
+	local title = dead and "SHIP LOST" or (flight and "FLIGHT COMPLETE" or "RUN COMPLETE")
+	if flight and flight.dest then row("Destination", flight.dest) end
+	row("Level", sprintf("%s %d", g.name:upper(), g.seed))
+	if g.seconds then
+		row("Time", sprintf("%s of %s", LevelGen.clockText(g.clock), LevelGen.clockText(g.seconds)))
+		row("Boss", g.bossKilledAt and "destroyed at " .. LevelGen.clockText(g.bossKilledAt)
+			or (g.bossOn and "escaped" or "not reached"))
+		row("Drops", tostring(g.drops))
+	end
+	row("Enemies killed", sprintf("%d%%", run.kills))
+	if bonus then
+		row("Bonus level", g.bonusOffered)
+		row("Bonus killed", sprintf("%d%%", bonus.kills))
+		row("Bonus score", tostring(bonus.cash - run.cash))
+	elseif g.bonusOffered then
+		row("Bonus level", "skipped")
+	end
+	row("Score", tostring((bonus or run).cash))
+	if g.best then row("", "NEW BEST " .. g.name:upper()) end
+
+	if opt("scoreCardMusic", true) then play_song(26) end
+	JE_clr256(VGAScreen)
+	copyPalette(colors, palettes[6 - 1])
+	local font = SMALL_FONT_SHAPES
+	JE_dString(VGAScreen, JE_fontCenter(title, font), 14, title, font)
+	local y = 44
+	for _, l in ipairs(lines) do
+		JE_dString(VGAScreen, 30, y, l[1], font)
+		JE_dString(VGAScreen, 290 - JE_textWidth(l[2], font), y, l[2], font)
+		y = y + 13
+	end
+	local hint = opt("keepOpen", false) and "Fire or Esc to continue" or "Fire or Esc to close"
+	JE_dString(VGAScreen, JE_fontCenter(hint, font), 182, hint, font)
+	JE_showVGA()
+	fade_palette(colors, 15, 0, 255)
+	fireOrEsc()
+	LevelGen.blankScreen()
+end
+
+-- Fades to black and presents a blank frame while the window is still
+-- shown, so the next Show doesn't flash this run's last picture.
+function LevelGen.blankScreen()
+	fade_black(15)
+	stop_song()
+	JE_clr256(VGAScreen)
+	JE_showVGA()
+	ns.present(VGAScreen)
+end
+
+-- Records a finished generated level in the saved statistics: the last
+-- RUNS_KEPT runs, the best score per theme and lifetime totals.  Sets
+-- g.best when the run beat the theme's best score.
+local RUNS_KEPT = 20
+function LevelGen.recordRun(g, run, bonus, flight)
+	local db = ns.db
+	if not db then return end
+	local st = db.stats or {}
+	db.stats = st
+	st.runs = st.runs or {}
+	st.best = st.best or {}
+	st.totals = st.totals or {}
+	local score = (bonus or run).cash
+	local r = {
+		date = date and date("%Y-%m-%d %H:%M") or nil,
+		theme = g.name, seed = g.seed,
+		seconds = g.seconds, clock = g.seconds and floor(g.clock + 0.5),
+		boss = g.bossKilledAt and true or false,
+		kills = run.kills, drops = g.drops, score = score,
+		dead = (run.dead or (bonus and bonus.dead)) and true or false,
+		bonus = bonus and g.bonusOffered or nil,
+		dest = flight and flight.dest or nil,
+	}
+	table.insert(st.runs, 1, r)
+	while #st.runs > RUNS_KEPT do table.remove(st.runs) end
+	local best = st.best[g.name]
+	if not best or score > best.score then
+		g.best = best ~= nil and score > 0
+		st.best[g.name] = { score = score, kills = run.kills, date = r.date, seed = g.seed }
+	end
+	local t = st.totals
+	t.runs = (t.runs or 0) + 1
+	if flight then t.flights = (t.flights or 0) + 1 end
+	if g.clock then t.seconds = (t.seconds or 0) + floor(g.clock + 0.5) end
+	if r.boss then t.bosses = (t.bosses or 0) + 1 end
+	if r.dead then t.lost = (t.lost or 0) + 1 end
+	if bonus then t.bonus = (t.bonus or 0) + 1 end
+	t.drops = (t.drops or 0) + (g.drops or 0)
+	t.score = (t.score or 0) + score
+end
+
+-- Once per game frame of a bonus level: ends it before the landing.
+function LevelGen.bonusFrame()
+	local left = ns.Flight and ns.Flight.remaining()
+	if (not left or left <= landMargin()) and not endLevel then
+		endLevel, readyToEndLevel, levelEnd = true, false, 40
+	end
 end
 
 -- Called at the end of JE_loadMap: swap in generated maps and tame events.
@@ -479,16 +716,18 @@ local function timedFrame(g)
 	end
 	local p = g.clock / g.bossClock
 	local step = rampAt(p)
-	difficultyLevel = step.level + floor(g.power * RAMP_LEVEL_ADD + 0.5)
-	if levelEnemyMax > 0 and levelEnemyFrequency > step.freq then
-		levelEnemyFrequency = step.freq
+	difficultyLevel = difficulty(step.level + floor(g.power * RAMP_LEVEL_ADD + 0.5))
+	local dens = density()
+	local freq = step.freq + dens.freq
+	if levelEnemyMax > 0 and levelEnemyFrequency > freq then
+		levelEnemyFrequency = freq
 	end
 	local waves = g.waves
 	local w = waves[g.nextWave]
 	while w and w.t - curLoc <= PLAN_AHEAD do
 		-- when it will spawn; none just before the boss
 		local eta = g.clock + (w.t - curLoc) * tick
-		local keep = eta < g.bossClock - QUIET and g.rnd(1000) < step.keep * 1000
+		local keep = eta < g.bossClock - QUIET and g.rnd(1000) < step.keep * dens.keep * 1000
 		for k, i in ipairs(w.events) do
 			eventRec[i].eventtype = keep and w.types[k] or 0
 		end
@@ -499,7 +738,7 @@ local function timedFrame(g)
 	if p < 1 then return end
 	g.bossOn = true
 	g.bossClock = g.clock
-	difficultyLevel = BOSS_LEVEL + floor(g.power * BOSS_LEVEL_ADD + 0.5)
+	difficultyLevel = difficulty(BOSS_LEVEL + floor(g.power * BOSS_LEVEL_ADD + 0.5))
 	if not g.bossAt then
 		-- no boss in the template: just end the level
 		endLevel, readyToEndLevel, levelEnd = true, false, 40
@@ -633,7 +872,7 @@ end
 function LevelGen.maybeDrop(e2)
 	local g = genLevel
 	if not g or not g.seconds or e2.enemydie ~= 0 or e2.scoreitem then return end
-	if g.rnd(1000) >= (DROP_CHANCE + DROP_CHANCE_ADD * g.power) * 1000 then return end
+	if g.rnd(1000) >= (DROP_CHANCE + DROP_CHANCE_ADD * g.power) * opt("genDrops", 1) * 1000 then return end
 	local kinds = dropTable(g)
 	local total = 0
 	for _, k in ipairs(kinds) do total = total + k.weight end

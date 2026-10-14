@@ -304,8 +304,9 @@ end
 function ns.gameMain()
 	initialize()
 
+	local afterRun = false
 	while true do
-		if not stoppedDemo and not ns.genLevelRequest and not (ns.options and ns.options.skipLogos) then
+		if not stoppedDemo and not afterRun and not ns.genLevelRequest and not (ns.options and ns.options.skipLogos) then
 			intro_logos()
 		end
 
@@ -317,16 +318,45 @@ function ns.gameMain()
 
 		gameLoaded = false
 		jumpSection = false
+		afterRun = false
 
 		if ns.genLevelRequest then
 			-- /tyrian genlevel: straight into a generated level
 			local req = ns.genLevelRequest
 			ns.genLevelRequest = nil
+			local g, run, bonus
+			local flight = ns.Flight and ns.Flight.current
 			if LevelGen.beginTest(req.name, req.seed, req.seconds) then
 				JE_main()
+				g = genLevel
+				run = LevelGen.levelStats()
+				-- a bonus level when it was finished with flight to spare;
+				-- genLevel is cleared so its hooks stay out of the way
+				if LevelGen.offerBonus(g) then
+					genLevel = nil
+					JE_main()
+					bonus = LevelGen.levelStats()
+					bonusRun = nil
+					bonusLevelCurrent = false
+					genLevel = g
+				end
 			end
 			LevelGen.endTest()
+			if g then
+				-- score card, then close the game (the next Show or flight
+				-- starts a fresh one) unless the options keep it open
+				LevelGen.recordRun(g, run, bonus, flight)
+				local o = ns.options or {}
+				if o.scoreCard ~= false then
+					LevelGen.scoreCard(g, run, bonus, flight)
+				else
+					LevelGen.blankScreen()
+				end
+				if not o.keepOpen then break end
+				afterRun = true
+			end
 		elseif not titleScreen() then
+			-- Esc or Quit on the title screen closes the game
 			break
 		elseif loadDestruct then
 			JE_destructGame()
