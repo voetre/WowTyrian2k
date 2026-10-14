@@ -20,7 +20,7 @@ arcade level that ends before you land, with a boss at the end.
 
 ## Install
 
-Install it from CurseForge or WowUp, or download
+Install it from [CurseForge](https://www.curseforge.com/wow/addons/wow-tyrian-2k) or WowUp, or download
 **`WowTyrian2k-v<version>-forever.zip`** from
 [Releases](https://github.com/voetre/WowTyrian2k/releases) (releases up to 0.3.1 call it
 `-full.zip`). It includes the converted Tyrian data. Unzip it so the folder sits at
