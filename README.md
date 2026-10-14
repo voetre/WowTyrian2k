@@ -1,11 +1,10 @@
 # WowTyrian2k
 
-[OpenTyrian](https://github.com/opentyrian/opentyrian) (Tyrian 2.1) ported to the
-World of Warcraft Lua addon engine. Type `/tyrian` in game to play.
+[OpenTyrian](https://github.com/opentyrian/opentyrian) (Tyrian 2.1) ported to a World of
+Warcraft addon. Type `/tyrian` in game to play.
 
-On top of a straight port of the original game, this version adds a **flight path mode**.
-When you take a flight, the addon offers a generated, arcade-style level timed to end just
-before you land, with a boss fight at the end.
+It also adds a **flight path mode**: when you take a flight, the addon offers a generated
+arcade level that ends before you land, with a boss at the end.
 
 | | |
 |---|---|
@@ -23,7 +22,7 @@ before you land, with a boss fight at the end.
 
 Download **`WowTyrian2k-<version>-full.zip`** from
 [Releases](https://github.com/voetre/WowTyrian2k/releases). It includes the converted
-Tyrian data and is ready to play. Unzip it so the folder sits at
+Tyrian data. Unzip it so the folder sits at
 `Interface/AddOns/WowTyrian2k`, then restart the game client fully; a `/reload` doesn't
 pick up new texture files.
 
@@ -31,7 +30,7 @@ A clone of this repository works too, since it includes the data: copy or link t
 checkout to `Interface/AddOns/WowTyrian2k`. The code-only zip needs the data built
 first; see [Game data](#game-data).
 
-> Interface 16001 (Classic). Version 0.3.0.
+> Interface 16001 (Classic). Version 0.3.1.
 
 ## Changes from OpenTyrian
 
@@ -67,8 +66,8 @@ first; see [Game data](#game-data).
   2. Flight Timer Classic's data (`Core/FlightData.lua`, CC BY 2.0)
   3. a fitted distance/hop model
 
-  Every completed flight is recorded, so the estimates improve with use.
-- **Flight toast** (`Core/FlightPrompt.lua`): a small, draggable toast. It shows the
+  Every completed flight is recorded and used for later estimates.
+- **Flight toast** (`Core/FlightPrompt.lua`): a draggable toast. It shows the
   destination, a countdown and a progress bar, and asks *"Play Tyrian? (m:ss level)"*.
   - It never takes the keyboard.
   - It fades away by itself when too little flight is left.
@@ -90,7 +89,8 @@ first; see [Game data](#game-data).
   levels.
 - `tools/levgen/build.py` cuts the original maps into segments and builds a graph of
   which segment may follow which, joining some with generated bridge rows.
-- Every 2x2 tile window along each join occurs in a real map, so the joins are seamless.
+- Every 2x2 tile window along each join occurs in a real map, so the joins have no
+  visible seams.
 - Themes: `forest` and `ocean`. Enemy waves come from the same source levels.
 - **Timed levels** last a fixed time. They end with a boss section from the source level,
   plus an overtime limit.
@@ -114,7 +114,7 @@ A 2-minute level is at about 95%; a 10-minute level is at about 36%.
   frequency is capped at 95/93/90.
 - **Music:** each level picks a random song, seeded from the level seed.
 
-### Quality-of-life and tooling (new)
+### Other additions (new)
 
 - **Options** under Options > AddOns > WowTyrian2k. The top page has the Tyrian logo,
   a "Play Tyrian" button, how to play and the credits; the settings are on its
@@ -143,8 +143,8 @@ A 2-minute level is at about 95%; a 10-minute level is at about 36%.
       every cheat off during flight mode levels
   - **Advanced:** debug messages, the performance meter, clearing debug dumps,
     restarting the game and resetting every setting.
-- **Jukebox controls** (Setup > Jukebox): a media panel under the game window in the
-  style of the WoW settings window, with:
+- **Jukebox controls** (Setup > Jukebox): a panel under the game window, styled like the
+  WoW settings window, with:
   - the song's title, track number and a progress bar (WoW can't seek or pause music, so
     the bar shows the position only)
   - shuffle, previous, play/stop, next and loop buttons
@@ -156,7 +156,7 @@ A 2-minute level is at about 95%; a 10-minute level is at about 36%.
   leaves. The song keeps playing when you go back to the title screen, and the WoW music
   is put back the way it was when the game closes. The layout, loop, title-on-screen and
   visualizer settings are saved between sessions; shuffle always starts off.
-- **Window frame** in the same style, with a title bar that shows what the game is doing:
+- **Window frame** in the same style. The title bar shows:
   the screen (Title Screen, Jukebox, Upgrade Ship, Paused...), the episode and level,
   the difficulty and score while playing, the song in the jukebox, and on a flight the
   destination and time left.

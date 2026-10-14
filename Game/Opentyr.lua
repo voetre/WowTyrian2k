@@ -142,7 +142,7 @@ function setupMenu()
 		[0] = { name = "Music", desc = "Toggle the music." },
 		{ name = "Sound Effects", desc = "Toggle sound effects." },
 		{ name = "Window Scale", desc = "Change the size of the game window." },
-		{ name = "Jukebox", desc = "Listen to the music of Tyrian." },
+		{ name = "Jukebox", desc = "Play the game's music." },
 		{ name = "Done", desc = "Return to the main menu." },
 	}
 	local count = 5

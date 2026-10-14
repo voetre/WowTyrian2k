@@ -2,7 +2,7 @@
 ## Title: WowTyrian2k
 ## Notes: OpenTyrian (Tyrian 2.1) ported to the WoW Lua engine. Type /tyrian to play.
 ## Author: voetre
-## Version: 0.3.0
+## Version: 0.3.1
 ## SavedVariables: WowTyrian2kDB
 
 Libs\LibStub\LibStub.lua

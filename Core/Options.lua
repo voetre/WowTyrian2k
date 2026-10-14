@@ -51,13 +51,13 @@ local defaults = {
 local cheatList = {
 	{ key = "shield", name = "Infinite shield", desc = "Your shield is always full." },
 	{ key = "armor", name = "Infinite armour", desc = "Your armour never drops below its starting value." },
-	{ key = "invincible", name = "Invincible", desc = "Nothing can damage your ship: enemy shots and enemy ships pass straight through it." },
-	{ key = "instantKill", name = "Instant kill", desc = "Any hit from your weapons destroys an enemy (indestructible objects stay indestructible)." },
-	{ key = "power", name = "Infinite generator power", desc = "Weapons never run out of power and fire at full rate." },
+	{ key = "invincible", name = "Invincible", desc = "Enemy shots and ships do no damage to your ship." },
+	{ key = "instantKill", name = "Instant kill", desc = "One hit destroys any enemy that can be destroyed." },
+	{ key = "power", name = "Infinite generator power", desc = "The generator never runs out, so weapons always fire at full rate." },
 	{ key = "ammo", name = "Infinite sidekick ammo", desc = "Sidekicks with limited ammunition never run out." },
-	{ key = "credits", name = "Unlimited credits", desc = "You always have at least 1,000,000 credits to spend in the upgrade shop." },
-	{ key = "shopUnlock", name = "All shop items", desc = "The upgrade shop sells every item that any shop in the four episodes sells." },
-	{ key = "secretUnlock", name = "Secret items", desc = "The upgrade shop also sells the secret ships, weapons, shield and sidekick that no shop normally sells, such as the Nort Ship, the Stalker and the Banana Blast." },
+	{ key = "credits", name = "Unlimited credits", desc = "You always have at least 1,000,000 credits in the upgrade shop." },
+	{ key = "shopUnlock", name = "All shop items", desc = "The upgrade shop sells every item from every episode's shop." },
+	{ key = "secretUnlock", name = "Secret items", desc = "The upgrade shop also sells the secret items no shop normally has, such as the Nort Ship, the Stalker and the Banana Blast." },
 }
 
 -- Called each frame from JE_mainGamePlayerFunctions.
@@ -486,14 +486,13 @@ local function buildMainPanel()
 	end
 
 	local a = para(logo, "GameFontHighlight",
-		"OpenTyrian (Tyrian 2.1) ported to the World of Warcraft addon engine: the whole game, all four episodes, " ..
-		"running in a window inside WoW.", 10)
+		"OpenTyrian (Tyrian 2.1) ported to a WoW addon.  The full game runs in a window.", 10)
 	a = para(a, "GameFontNormal", "How to play", 14)
 	a = para(a, "GameFontHighlightSmall",
 		"Type /tyrian (or /wt2k), click the minimap button, or set a key under Key Bindings > AddOns.  " ..
 		"Arrow keys move, Space fires, Enter changes the rear weapon mode, Esc opens the menu.\n" ..
-		"Flight mode: take a flight and a generated level is offered that ends just before you land, " ..
-		"with a boss at the end and a bonus level if there's time to spare.\n" ..
+		"Flight mode: when you take a flight you're offered a generated level that ends before you land.  " ..
+		"It ends with a boss.  If enough flight time is left after the boss, you're offered a bonus level.\n" ..
 		"The settings are on the pages under this one.")
 	a = para(a, "GameFontNormal", "Credits", 14)
 	a = para(a, "GameFontHighlightSmall",
@@ -581,7 +580,7 @@ local function buildSoundPanel()
 			saveConfig()
 		end, 30)
 	a = checkbox(p, a, "Use the game's volume levels",
-		"WoW cannot set the volume of a single sound, so while the Tyrian window is open the WoW Music and Effects volume sliders are set to the game's levels.  Your own WoW settings are restored when the window closes.  Untick this to leave the WoW volume alone (the volume sliders above then have no effect).",
+		"WoW can't set the volume of one sound, so while the game window is open the WoW Music and Effects volumes are set to the game's levels.  Your WoW volumes are put back when the window closes.  Untick this to leave the WoW volumes alone; the sliders above then do nothing.",
 		function() return o.controlVolume end,
 		function(v)
 			if not v then ns.releaseAudio() end
@@ -600,7 +599,7 @@ end
 local function buildCheatsPanel()
 	local o = ns.options
 	local p = newPanel("Cheats")
-	local a = header(p, "Cheats", "These take effect immediately, also during a level.")
+	local a = header(p, "Cheats", "Changes apply at once, including during a level.")
 	for i = 1, #cheatList do
 		local c = cheatList[i]
 		a = checkbox(p, a, c.name, c.desc,
@@ -611,7 +610,7 @@ local function buildCheatsPanel()
 		function(v) return v == 0 and "Normal" or tostring(v) end,
 		function() return o.cheats.lives or 0 end,
 		function(v) o.cheats.lives = v > 0 and v or nil end)
-	a = checkbox(p, a, "No cheats in flight mode", "Turn all the cheats above off while a timed (flight mode) level or its bonus level is being played, so those runs are fair.  They come back on afterwards.",
+	a = checkbox(p, a, "No cheats in flight mode", "Turn all the cheats above off during timed (flight mode) levels and their bonus levels.  They turn back on afterwards.",
 		function() return o.noFlightCheats end, function(v) o.noFlightCheats = v end)
 	return p
 end
@@ -673,7 +672,7 @@ local function buildFlightPanel()
 	a = slider(p, a, "Finish before landing", "How long before the landing the level (and a bonus level) ends.", 0, 60, 5,
 		function(v) return v .. " s" end,
 		function() return o.flightMargin end, function(v) o.flightMargin = v end)
-	a = actionButton(p, a, "Forget recorded flights", "Flight times are recorded every time you land, which makes the estimates better.  This forgets them.",
+	a = actionButton(p, a, "Forget recorded flights", "Flight times are recorded each time you land and used for the estimates.  This deletes them.",
 		function()
 			confirm("Forget all recorded flight times?", function()
 				ns.db.flights = nil
@@ -690,7 +689,7 @@ local function buildLevelsPanel()
 	a = slider(p, a, "Difficulty", "Added to the difficulty of the waves and the boss.", -2, 2, 1,
 		function(v) return v == 0 and "Normal" or (v > 0 and "+" .. v or tostring(v)) end,
 		function() return o.genDifficulty end, function(v) o.genDifficulty = v end)
-	a = dropdown(p, a, "Arcade power", "Normally the shorter the level, the stronger you start, the more drops and the tougher the enemies.  Pick a fixed power here instead.",
+	a = dropdown(p, a, "Arcade power", "By default, shorter levels give a stronger start, more drops and tougher enemies.  Pick a fixed power to use instead.",
 		{ { -1, "Auto (by length)" }, { 0, "0% (long level)" }, { 25, "25%" }, { 50, "50%" }, { 75, "75%" }, { 100, "100% (short level)" } },
 		function() return o.genPower end, function(v) o.genPower = v end)
 	a = dropdown(p, a, "Drops", "How often killed enemies drop power-ups.",
@@ -810,7 +809,7 @@ local function buildAdvancedPanel()
 			ns.db.dumps = nil
 			ns.Print(n .. " debug dumps cleared")
 		end)
-	a = actionButton(p, a, "Restart the game", "Throw away the game in progress and start again from the title screen (/tyrian restart).  Saved games are kept.",
+	a = actionButton(p, a, "Restart the game", "End the current game and go back to the title screen (/tyrian restart).  Saved games are kept.",
 		function()
 			ns.restartGame()
 			ns.Print("game restarted")
