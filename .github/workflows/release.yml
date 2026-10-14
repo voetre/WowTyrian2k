@@ -1,0 +1,48 @@
+# Push a tag like v0.3.2 to build the addon zip and publish it to the
+# GitHub release (with release.json, for WowUp) and to CurseForge.
+# CurseForge needs the CF_API_KEY secret and X-Curse-Project-ID in the toc;
+# without them that upload is skipped.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:   # a test build: packages without uploading
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      CF_API_KEY: ${{ secrets.CF_API_KEY }}
+      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Package and upload
+        if: github.event_name == 'push'
+        uses: BigWigsMods/packager@v2
+
+      - name: Package only (test build)
+        if: github.event_name == 'workflow_dispatch'
+        uses: BigWigsMods/packager@v2
+        with:
+          args: -d
+
+      # The code-only zip, for building the game data yourself
+      - name: Code-only zip
+        run: |
+          cd .release
+          rm -rf WowTyrian2k/Data WowTyrian2k/Textures WowTyrian2k/Sound WowTyrian2k/DATA-NOTICE.txt
+          zip -qr -X "WowTyrian2k-${GITHUB_REF_NAME#v}-code.zip" WowTyrian2k
+          ls -la
+
+      - name: Upload code-only zip
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" .release/WowTyrian2k-*-code.zip

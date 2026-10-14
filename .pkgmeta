@@ -1,0 +1,9 @@
+package-as: WowTyrian2k
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
+ignore:
+  - docs
+  - .github
