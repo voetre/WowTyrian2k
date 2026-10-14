@@ -1,7 +1,8 @@
 # Push a tag like v0.3.2 to build the addon zip and publish it to the
 # GitHub release (with release.json, for WowUp) and to CurseForge.
 # CurseForge needs the CF_API_KEY secret and X-Curse-Project-ID in the toc;
-# without them that upload is skipped.
+# without them that upload is skipped. Wago (WAGO_API_TOKEN + X-Wago-ID) and
+# WowInterface (WOWI_API_TOKEN + X-WoWI-ID) work the same way.
 name: Release
 
 on:
@@ -17,6 +18,8 @@ jobs:
       contents: write
     env:
       CF_API_KEY: ${{ secrets.CF_API_KEY }}
+      WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+      WOWI_API_TOKEN: ${{ secrets.WOWI_API_TOKEN }}
       GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
